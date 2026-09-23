@@ -31,7 +31,7 @@ class BootReceiver : BroadcastReceiver() {
         val serverUrl = prefs.getString(Prefs.SERVER_URL, null)
         if (employeeId.isNullOrBlank() || serverUrl.isNullOrBlank()) return // never configured yet
 
-        val request = PeriodicWorkRequestBuilder<SyncWorker>(12, TimeUnit.HOURS)
+        val request = PeriodicWorkRequestBuilder<SyncWorker>(SYNC_INTERVAL_HOURS, TimeUnit.HOURS)
             .setConstraints(
                 Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
             )

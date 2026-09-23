@@ -14,3 +14,11 @@ object Prefs {
     // uploaded from storage, no matter what other timestamps say.
     const val INSTALL_FLOOR = "install_floor_ts"
 }
+
+// Single source of truth for the periodic sync interval, referenced by both
+// MainActivity (initial schedule) and BootReceiver (re-arm after reboot) so
+// the two can never drift apart again the way they easily could before —
+// each had its own hardcoded number. Shorter than the old 12h partly to
+// keep each batch (and therefore each JSON payload) smaller, which lowers
+// the odds of hitting the server's per-field size limit in the first place.
+const val SYNC_INTERVAL_HOURS = 6L

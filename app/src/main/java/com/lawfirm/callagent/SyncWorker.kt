@@ -17,7 +17,12 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.io.IOException
+import java.net.ConnectException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
+import javax.net.ssl.SSLException
 import kotlin.math.abs
 
 private val AUDIO_EXTENSIONS = setOf("m4a", "amr", "wav", "mp3", "3gp", "aac", "opus")
@@ -30,6 +35,14 @@ private val RECORDING_MATCH_WINDOW_MS = TimeUnit.MINUTES.toMillis(5)
 private val EXCLUDED_DIR_NAMES = setOf(
     "WhatsApp", "Telegram", "DCIM", "Camera", "Pictures", "Download", "obb", ".thumbnails"
 )
+
+// WorkManager retries Result.retry() forever by default — there is no
+// built-in cap. Without this, any persistent problem (server down, wrong
+// URL, DNS failure, whatever) freezes the UI on "Syncing…" indefinitely,
+// since the UI only updates on SUCCEEDED/FAILED. runAttemptCount is
+// WorkManager's own per-work-request counter (survives process death,
+// resets on the next scheduled/manual run) — no need to track it ourselves.
+private const val MAX_RETRY_ATTEMPTS = 8
 
 private data class CallEntry(
     val callLogId: Long,
@@ -53,8 +66,11 @@ class SyncWorker(appContext: Context, params: WorkerParameters) :
         val serverUrl = prefs.getString(Prefs.SERVER_URL, null)
 
         if (employeeId.isNullOrBlank() || serverUrl.isNullOrBlank()) {
+            DiagnosticLog.append(applicationContext, "sync: not configured (missing employeeId/serverUrl)")
             return@withContext Result.failure(workDataOf("error" to "not configured"))
         }
+
+        DiagnosticLog.append(applicationContext, "sync: starting (attempt ${runAttemptCount + 1})")
 
         val now = System.currentTimeMillis()
 
@@ -88,6 +104,7 @@ class SyncWorker(appContext: Context, params: WorkerParameters) :
 
         if (calls.isEmpty()) {
             prefs.edit().putLong(Prefs.LAST_SYNC, now).apply()
+            DiagnosticLog.append(applicationContext, "sync: success, nothing new (0 calls)")
             return@withContext Result.success(workDataOf("uploaded" to 0, "calls" to 0))
         }
 
@@ -103,19 +120,67 @@ class SyncWorker(appContext: Context, params: WorkerParameters) :
         }
 
         val payload = buildPayload(employeeId, callsWithFiles, integrityFlag)
-        val ok = uploadBatch(serverUrl, payload, callsWithFiles.mapNotNull { it.second })
+        val uploadResult = uploadBatch(serverUrl, payload, callsWithFiles.mapNotNull { it.second })
 
-        if (ok) {
-            prefs.edit()
-                .putLong(Prefs.LAST_SYNC, now)
-                .putInt(Prefs.LAST_SEEN_CALL_COUNT, calls.size)
-                .putLong(Prefs.LAST_SEEN_CALL_TIMESTAMP, calls.maxOf { it.dateMs })
-                .apply()
-            Result.success(workDataOf("uploaded" to usedFiles.size, "calls" to calls.size))
-        } else {
-            // Leave LAST_SYNC untouched so this batch is retried next run
-            // (server should dedupe on employeeId + callLogId).
-            Result.retry()
+        when (uploadResult) {
+            is UploadResult.Success -> {
+                prefs.edit()
+                    .putLong(Prefs.LAST_SYNC, now)
+                    .putInt(Prefs.LAST_SEEN_CALL_COUNT, calls.size)
+                    .putLong(Prefs.LAST_SEEN_CALL_TIMESTAMP, calls.maxOf { it.dateMs })
+                    .apply()
+                DiagnosticLog.append(
+                    applicationContext,
+                    "sync: success — ${usedFiles.size} recording(s), ${calls.size} call(s)"
+                )
+                Result.success(workDataOf("uploaded" to usedFiles.size, "calls" to calls.size))
+            }
+            is UploadResult.Rejected -> {
+                // Server actively rejected the request (bad employeeId, inactive
+                // employee, payload/file too large, etc). Retrying won't help
+                // until config changes on the server or in the app, so fail
+                // fast with a real message instead of looping silently forever.
+                // LAST_SYNC is left untouched so a fixed config picks this
+                // batch back up on the next run.
+                DiagnosticLog.append(
+                    applicationContext,
+                    "sync: rejected by server — HTTP ${uploadResult.code}: ${uploadResult.message ?: "(no message)"}"
+                )
+                Result.failure(
+                    workDataOf(
+                        "error" to "rejected",
+                        "code" to uploadResult.code,
+                        "message" to uploadResult.message
+                    )
+                )
+            }
+            is UploadResult.NetworkError -> {
+                DiagnosticLog.append(
+                    applicationContext,
+                    "sync: transient failure (${uploadResult.reason}) — ${uploadResult.detail}"
+                )
+                // Transient (no connection, timeout, server down, DNS, TLS,
+                // etc) — worth retrying, but not forever. After
+                // MAX_RETRY_ATTEMPTS, give up with a clear reason instead of
+                // leaving the UI stuck on "Syncing…" indefinitely; the next
+                // scheduled periodic run (or a manual Sync Now) starts the
+                // attempt count over.
+                if (runAttemptCount + 1 >= MAX_RETRY_ATTEMPTS) {
+                    DiagnosticLog.append(
+                        applicationContext,
+                        "sync: giving up after ${runAttemptCount + 1} attempts"
+                    )
+                    Result.failure(
+                        workDataOf(
+                            "error" to "max_retries_exceeded",
+                            "reason" to uploadResult.reason,
+                            "message" to uploadResult.detail
+                        )
+                    )
+                } else {
+                    Result.retry()
+                }
+            }
         }
     }
 
@@ -260,7 +325,11 @@ class SyncWorker(appContext: Context, params: WorkerParameters) :
      * data, and one part per recording file so the server can associate bytes
      * with the matching entry in `payload.calls` by filename.
      */
-    private fun uploadBatch(serverUrl: String, payload: JSONObject, recordings: List<File>): Boolean {
+    private fun uploadBatch(
+        serverUrl: String,
+        payload: JSONObject,
+        recordings: List<File>
+    ): UploadResult {
         return try {
             val bodyBuilder = MultipartBody.Builder().setType(MultipartBody.FORM)
                 .addPart(
@@ -285,9 +354,52 @@ class SyncWorker(appContext: Context, params: WorkerParameters) :
                 .post(bodyBuilder.build())
                 .build()
 
-            client.newCall(request).execute().use { it.isSuccessful }
+            client.newCall(request).execute().use { response ->
+                when {
+                    response.isSuccessful -> UploadResult.Success
+                    // 401/403: server understood the request and actively rejected
+                    // it (bad/unknown/inactive employeeId, bad auth). 400/404/413/422
+                    // are lumped in here too - all "config or data is wrong," not
+                    // "network is flaky." Endless retry never fixes these.
+                    response.code == 401 || response.code == 403 || response.code == 400 ||
+                        response.code == 404 || response.code == 413 || response.code == 422 -> {
+                        val body = try { response.body?.string() } catch (e: Exception) { null }
+                        val message = extractServerMessage(body) ?: body?.take(200)
+                        UploadResult.Rejected(response.code, message)
+                    }
+                    // 5xx and anything else unexpected: treat as transient, keep retrying.
+                    else -> UploadResult.NetworkError("http_${response.code}", "server returned HTTP ${response.code}")
+                }
+            }
+        } catch (e: UnknownHostException) {
+            UploadResult.NetworkError("dns_error", e.message ?: "could not resolve server host")
+        } catch (e: SSLException) {
+            UploadResult.NetworkError("tls_error", e.message ?: "TLS/SSL handshake failed")
+        } catch (e: SocketTimeoutException) {
+            UploadResult.NetworkError("timeout", e.message ?: "request timed out")
+        } catch (e: ConnectException) {
+            UploadResult.NetworkError("connection_refused", e.message ?: "connection refused")
+        } catch (e: IOException) {
+            UploadResult.NetworkError("io_error", "${e.javaClass.simpleName}: ${e.message}")
         } catch (e: Exception) {
-            false
+            UploadResult.NetworkError("unknown_exception", "${e.javaClass.simpleName}: ${e.message}")
         }
     }
+
+    // The server responds with {"error": "...", "message": "..."} — try to
+    // surface the human-readable "message" rather than the raw body.
+    private fun extractServerMessage(body: String?): String? {
+        if (body.isNullOrBlank()) return null
+        return try {
+            JSONObject(body).optString("message", null)
+        } catch (e: Exception) {
+            null
+        }
+    }
+}
+
+private sealed class UploadResult {
+    object Success : UploadResult()
+    data class Rejected(val code: Int, val message: String?) : UploadResult()
+    data class NetworkError(val reason: String, val detail: String) : UploadResult()
 }

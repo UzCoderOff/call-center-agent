@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- DiagnosticLog writes diagnostics.log to context.filesDir, which this maps to. -->
+    <files-path name="diagnostics" path="." />
+</paths>

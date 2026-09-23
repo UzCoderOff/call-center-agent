@@ -61,6 +61,13 @@
             android:layout_marginTop="8dp"
             android:text="Sync Now (test)" />
 
+        <Button
+            android:id="@+id/shareDiagnosticsButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Share Diagnostics" />
+
         <TextView
             android:id="@+id/statusText"
             android:layout_width="match_parent"

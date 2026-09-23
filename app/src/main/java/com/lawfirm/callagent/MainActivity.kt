@@ -47,6 +47,9 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.permissionsButton).setOnClickListener { requestAllPermissions() }
         findViewById<Button>(R.id.batteryButton).setOnClickListener { requestBatteryExemption() }
         findViewById<Button>(R.id.syncNowButton).setOnClickListener { syncNow() }
+        findViewById<Button>(R.id.shareDiagnosticsButton).setOnClickListener {
+            DiagnosticLog.share(this)
+        }
     }
 
     private fun saveAndSchedule() {
@@ -74,9 +77,10 @@ class MainActivity : AppCompatActivity() {
             .putString(Prefs.SERVER_URL, serverUrl)
             .apply()
 
-        // 12-hour periodic sync. "UPDATE" so re-saving (e.g. after changing the
-        // server URL) doesn't create a second, duplicate schedule.
-        val request = PeriodicWorkRequestBuilder<SyncWorker>(12, TimeUnit.HOURS)
+        // "UPDATE" so re-saving (e.g. after changing the server URL) doesn't
+        // create a second, duplicate schedule. SYNC_INTERVAL_HOURS is shared
+        // with BootReceiver so the two can't silently drift apart.
+        val request = PeriodicWorkRequestBuilder<SyncWorker>(SYNC_INTERVAL_HOURS, TimeUnit.HOURS)
             .setConstraints(
                 Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
             )
@@ -87,7 +91,7 @@ class MainActivity : AppCompatActivity() {
             "call_sync", ExistingPeriodicWorkPolicy.UPDATE, request
         )
 
-        statusText.text = "Saved. Syncing every 12 hours."
+        statusText.text = "Saved. Syncing every $SYNC_INTERVAL_HOURS hours."
         toast("Saved")
     }
 
@@ -131,12 +135,40 @@ class MainActivity : AppCompatActivity() {
             .observe(this) { info ->
                 if (info == null) return@observe
                 when (info.state) {
+                    WorkInfo.State.RUNNING, WorkInfo.State.ENQUEUED -> {
+                        // runAttemptCount > 0 means this is a retry, not the
+                        // first try — worth showing so "still syncing" after
+                        // a while doesn't look identical to a fresh attempt.
+                        statusText.text = if (info.runAttemptCount > 0) {
+                            "Syncing… (attempt ${info.runAttemptCount + 1})"
+                        } else {
+                            "Syncing…"
+                        }
+                    }
                     WorkInfo.State.SUCCEEDED -> {
                         val uploaded = info.outputData.getInt("uploaded", 0)
                         statusText.text = "Last sync OK — $uploaded file(s) uploaded"
                     }
-                    WorkInfo.State.FAILED -> statusText.text =
-                        "Last sync failed — check server URL / permissions"
+                    WorkInfo.State.FAILED -> {
+                        val error = info.outputData.getString("error")
+                        val code = info.outputData.getInt("code", 0)
+                        val serverMsg = info.outputData.getString("message")
+                        val reason = info.outputData.getString("reason")
+                        statusText.text = when {
+                            error == "not configured" ->
+                                "Enter an Employee ID and Server URL, then Save"
+                            code == 401 || code == 403 ->
+                                "Sync rejected: Employee ID not recognized or inactive (HTTP $code)"
+                            code != 0 ->
+                                "Sync rejected by server (HTTP $code)" +
+                                    (serverMsg?.let { " — $it" } ?: "")
+                            error == "max_retries_exceeded" ->
+                                "Sync failed after repeated attempts" +
+                                    (reason?.let { " ($it)" } ?: "") +
+                                    ". Check the server URL, then tap Share Diagnostics."
+                            else -> "Last sync failed — check server URL / permissions. Tap Share Diagnostics for details."
+                        }
+                    }
                     else -> {}
                 }
             }

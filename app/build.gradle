@@ -3,6 +3,17 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 
+// Where the app points. Set in gradle.properties — change them there (e.g.
+// once the firm has its own domain) and rebuild; nothing is typed on phones.
+def portalUrl = project.findProperty("ledger.portalUrl") ?: "https://call-center-frontend-hazel.vercel.app"
+def apiUrl = project.findProperty("ledger.apiUrl") ?: "https://82.115.51.61.nip.io"
+
+// Release signing. Every release must be signed with the SAME key, or
+// Android refuses to install an update over the previous version. The key
+// lives outside the repo; CI provides it through environment variables
+// (see .github/workflows/build.yml and tools/create-signing-key.sh).
+def keystorePath = System.getenv("LEDGER_KEYSTORE_PATH")
+
 android {
     namespace 'com.lawfirm.callagent'
     compileSdk 34
@@ -11,13 +22,34 @@ android {
         applicationId "com.lawfirm.callagent"
         minSdk 26
         targetSdk 34
-        versionCode 1
-        versionName "1.0"
+        versionCode 3
+        versionName "2.1.0"
+
+        buildConfigField "String", "PORTAL_URL", "\"${portalUrl}\""
+        buildConfigField "String", "API_URL", "\"${apiUrl}\""
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    signingConfigs {
+        if (keystorePath) {
+            release {
+                storeFile file(keystorePath)
+                storePassword System.getenv("LEDGER_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("LEDGER_KEY_ALIAS")
+                keyPassword System.getenv("LEDGER_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
             minifyEnabled false
+            if (keystorePath) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 
@@ -34,6 +66,8 @@ android {
 dependencies {
     implementation 'androidx.core:core-ktx:1.13.1'
     implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'androidx.activity:activity-ktx:1.9.1'
+    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.8.4'
     implementation 'androidx.work:work-runtime-ktx:2.9.1'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1'

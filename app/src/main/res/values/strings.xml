@@ -1,3 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Oʻzbekcha (lotin). oʻ/gʻ use U+02BB, the tutuq belgisi U+02BC — the
+     same spelling as the portal. -->
 <resources>
-    <string name="app_name">Call Agent</string>
+    <string name="app_name">Ledger</string>
+
+    <!-- Sign-in -->
+    <string name="login_title">Tizimga kirish</string>
+    <string name="login_subtitle">Ish hisobingiz: portal logini va paroli</string>
+    <string name="login_username">Login</string>
+    <string name="login_password">Parol</string>
+    <string name="login_submit">Kirish</string>
+    <string name="login_invalid">Login yoki parol notoʻgʻri.</string>
+    <string name="login_too_many">Juda koʻp urinish. 15 daqiqadan soʻng qayta urinib koʻring.</string>
+    <string name="login_network">Serverga ulanib boʻlmadi. Internetni tekshirib, qayta urinib koʻring.</string>
+    <string name="login_fill">Login va parolni kiriting.</string>
+    <string name="app_version">Versiya %1$s</string>
+
+    <!-- Phone setup (only for people whose calls are collected). Honor's own
+         menu names are given in Uzbek and Russian: many phones here run
+         their system in Russian. -->
+    <string name="setup_counter">%1$d-qadam, jami %2$d</string>
+    <string name="setup_allow">Ruxsat berish</string>
+    <string name="setup_open_settings">Sozlamalarni ochish</string>
+    <string name="setup_next">Keyingisi</string>
+    <string name="setup_skip">Oʻtkazib yuborish</string>
+    <string name="setup_did_it">Bajardim</string>
+    <string name="setup_later">Keyinroq sozlayman</string>
+    <string name="setup_done_label">✓ Bajarilgan</string>
+
+    <string name="setup_calls_title">Qoʻngʻiroqlar roʻyxati</string>
+    <string name="setup_calls_text">Ilova kim bilan, qachon va qancha gaplashganingizni portalga yuboradi. Buning uchun ruxsat kerak.</string>
+    <string-array name="setup_calls_howto">
+        <item>«Ruxsat berish» tugmasini bosing.</item>
+        <item>Chiqqan oynada «Ruxsat berish» («Разрешить») ni tanlang.</item>
+        <item>Agar oʻrniga sozlamalar ochilsa: «Ruxsatlar» → «Qoʻngʻiroqlar jurnali» → «Ruxsat berish» («Разрешения» → «Список вызовов» → «Разрешить»), soʻng orqaga qayting.</item>
+    </string-array>
+
+    <string name="setup_files_title">Qoʻngʻiroq yozuvlari</string>
+    <string name="setup_files_text">Yozuvlarni topib, portalga yuborish uchun ilovaga fayllarga kirish ruxsati kerak. Ilova faqat qoʻngʻiroq yozuvlarini oladi.</string>
+    <string-array name="setup_files_howto">
+        <item>«Sozlamalarni ochish» tugmasini bosing.</item>
+        <item>«Barcha fayllarga kirish» («Доступ ко всем файлам») yonidagi tugmani yoqing.</item>
+        <item>Orqaga qayting — keyingi qadam oʻzi ochiladi.</item>
+    </string-array>
+
+    <string name="setup_battery_title">Batareya</string>
+    <string name="setup_battery_text">Telefon quvvatni tejash uchun ilovani toʻxtatib qoʻymasligi kerak — aks holda qoʻngʻiroqlar portalga bormay qoladi. Ilova batareyani deyarli sarflamaydi.</string>
+    <string-array name="setup_battery_howto">
+        <item>«Ruxsat berish» tugmasini bosing.</item>
+        <item>Chiqqan oynada «Ruxsat berish» («Разрешить») ni tanlang.</item>
+    </string-array>
+
+    <string name="setup_launch_title">Avtomatik ishga tushish</string>
+    <string name="setup_launch_text">Bu telefon fonda ishlaydigan ilovalarni oʻzi toʻxtatib qoʻyadi. Ledger doim ishlashi uchun buni bir marta sozlang.</string>
+    <string-array name="setup_launch_howto_honor">
+        <item>«Sozlamalarni ochish» tugmasini bosing.</item>
+        <item>Roʻyxatdan «Ledger»ni toping va yonidagi tugmani oʻchiring («Avtomatik boshqarish» / «Управлять автоматически»).</item>
+        <item>Chiqqan oynada uchala tugmani yoqing: «Avtomatik ishga tushirish», «Bilvosita ishga tushirish», «Fonda ishlash» («Автозапуск», «Косвенный запуск», «Работа в фоновом режиме»).</item>
+        <item>«OK» ni bosing va orqaga qayting.</item>
+        <item>Agar boshqa oyna ochilsa: «Batareya» → «Ilovalarni ishga tushirish» («Батарея» → «Запуск приложений») boʻlimini toping.</item>
+        <item>Tugagach, shu yerda «Bajardim» ni bosing.</item>
+    </string-array>
+    <string-array name="setup_launch_howto_xiaomi">
+        <item>«Sozlamalarni ochish» tugmasini bosing.</item>
+        <item>Roʻyxatdan «Ledger»ni toping va yonidagi tugmani yoqing («Avtozapusk» / «Автозапуск»).</item>
+        <item>Orqaga qayting va shu yerda «Bajardim» ni bosing.</item>
+    </string-array>
+
+    <string name="setup_ready_title">Hammasi tayyor!</string>
+    <string name="setup_ready_text">Endi har bir qoʻngʻiroq bir necha daqiqadan soʻng portalda paydo boʻladi. Telefonni odatdagidek ishlatavering.</string>
+    <string name="setup_open_portal">Portalni ochish</string>
+
+    <!-- Portal -->
+    <string name="portal_offline_title">Internet yoʻq</string>
+    <string name="portal_offline_text">Portalni yuklab boʻlmadi. Internet aloqasini tekshiring.</string>
+    <string name="portal_retry">Qayta urinish</string>
+    <string name="portal_renew_failed">Serverga ulanib boʻlmadi. Birozdan soʻng qayta urinib koʻring.</string>
+
+    <!-- Update -->
+    <string name="update_title">Yangi versiya mavjud</string>
+    <string name="update_text">Ilovaning yangi versiyasi (%1$s) chiqdi. Yuklab olib, oʻrnating.</string>
+    <string name="update_download">Yuklab olish</string>
+    <string name="update_later">Keyinroq</string>
+
+    <!-- Diagnostics -->
+    <string name="diagnostics_empty">Hali diagnostika yozuvlari yoʻq — avval sinxronlashni kuting.</string>
+    <string name="diagnostics_share">Diagnostikani yuborish</string>
 </resources>

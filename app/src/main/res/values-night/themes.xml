@@ -1,15 +1,12 @@
 <resources>
-    <!-- Follows the phone's light/dark setting; the portal inside the app
-         does the same (the WebView reports it as prefers-color-scheme). -->
     <style name="Theme.CallAgent" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="colorAccent">@color/accent</item>
         <item name="colorPrimary">@color/accent</item>
         <item name="android:windowBackground">@color/bg</item>
         <item name="android:statusBarColor">@color/bg</item>
-        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightStatusBar">false</item>
         <item name="android:textColor">@color/text</item>
     </style>
 
-    <!-- Shown for the split second while the launcher decides where to go. -->
     <style name="Theme.CallAgent.Launcher" parent="Theme.CallAgent" />
 </resources>

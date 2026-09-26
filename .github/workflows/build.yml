@@ -8,6 +8,12 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # Set these four repository secrets to get a properly signed release
+      # build (see tools/create-signing-key.sh). Without them the workflow
+      # still builds, but only a debug APK — fine for testing, not for
+      # handing out, because each debug build can't update the previous one.
+      KEYSTORE_B64: ${{ secrets.LEDGER_KEYSTORE_BASE64 }}
     steps:
       - uses: actions/checkout@v4
 
@@ -22,9 +28,6 @@ jobs:
         with:
           # Skip the legacy 'tools' package this action tries by default —
           # it no longer exists in Google's SDK repo and fails the step.
-          # We only need cmdline-tools (installed automatically) plus
-          # platform-tools; platform + build-tools are installed explicitly
-          # in the next step.
           packages: "platform-tools"
 
       - name: Install SDK platform + build-tools
@@ -37,11 +40,31 @@ jobs:
         with:
           gradle-version: 8.7
 
-      - name: Build debug APK
-        run: gradle assembleDebug --no-daemon
+      - name: Decode signing key
+        if: env.KEYSTORE_B64 != ''
+        run: |
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/ledger-release.p12"
+          echo "LEDGER_KEYSTORE_PATH=$RUNNER_TEMP/ledger-release.p12" >> "$GITHUB_ENV"
+
+      - name: Build signed release APK
+        if: env.KEYSTORE_B64 != ''
+        env:
+          LEDGER_KEYSTORE_PASSWORD: ${{ secrets.LEDGER_KEYSTORE_PASSWORD }}
+          LEDGER_KEY_ALIAS: ${{ secrets.LEDGER_KEY_ALIAS }}
+          LEDGER_KEY_PASSWORD: ${{ secrets.LEDGER_KEY_PASSWORD }}
+        run: |
+          gradle assembleRelease --no-daemon
+          cp app/build/outputs/apk/release/app-release.apk ledger.apk
+
+      - name: Build debug APK (no signing key configured)
+        if: env.KEYSTORE_B64 == ''
+        run: |
+          gradle assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk ledger-debug.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: call-agent-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: ledger-apk
+          path: ledger*.apk
+          retention-days: 14

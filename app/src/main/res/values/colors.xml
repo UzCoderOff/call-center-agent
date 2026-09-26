@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Same palette as the portal (call-center-portal/src/styles/tokens.css),
+     so the native screens and the portal inside the app feel like one app. -->
+<resources>
+    <color name="bg">#F5F5F7</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="fill">#EBEBF0</color>
+    <color name="text">#1D1D1F</color>
+    <color name="text2">#6E6E73</color>
+    <color name="accent">#0071E3</color>
+    <color name="accentSoft">#1A0071E3</color>
+    <color name="onAccent">#FFFFFF</color>
+    <color name="good">#0A7A0A</color>
+    <color name="critical">#B42323</color>
+</resources>

@@ -15,7 +15,7 @@ import java.util.Locale
  * The reason this exists: when sync gets stuck on one phone, nobody has a
  * USB cable or Android Studio handy to pull logcat — that's exactly the
  * situation we're in. Instead, every sync attempt appends one line here,
- * and "Share Diagnostics" in MainActivity lets the employee send the whole
+ * and "Share diagnostics" (Profile page inside the app) sends the whole
  * file over Telegram, email, or whatever they already have open.
  *
  * Deliberately a plain rolling text file rather than Log/Logcat, since
@@ -54,11 +54,7 @@ object DiagnosticLog {
     fun share(context: Context) {
         val file = File(context.filesDir, FILE_NAME)
         if (!file.exists()) {
-            Toast.makeText(
-                context,
-                "No diagnostics recorded yet — try Sync Now first",
-                Toast.LENGTH_LONG
-            ).show()
+            Toast.makeText(context, R.string.diagnostics_empty, Toast.LENGTH_LONG).show()
             return
         }
 
@@ -66,9 +62,9 @@ object DiagnosticLog {
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(Intent.EXTRA_SUBJECT, "Call Agent diagnostics")
+            putExtra(Intent.EXTRA_SUBJECT, "Ledger diagnostics (${BuildConfig.VERSION_NAME})")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        context.startActivity(Intent.createChooser(intent, "Share diagnostics log"))
+        context.startActivity(Intent.createChooser(intent, context.getString(R.string.diagnostics_share)))
     }
 }

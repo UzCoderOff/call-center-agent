@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Ledger mark inside the app (sign-in, start, offline screens): the
+     launcher icon as a rounded square. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="64dp"
+    android:height="64dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:pathData="M25,0H83A25,25 0,0 1,108 25V83A25,25 0,0 1,83 108H25A25,25 0,0 1,0 83V25A25,25 0,0 1,25 0Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:endX="108"
+                android:endY="108"
+                android:startX="0"
+                android:startY="0"
+                android:type="linear">
+                <item
+                    android:color="#FF2F8BFF"
+                    android:offset="0" />
+                <item
+                    android:color="#FF0A4FC4"
+                    android:offset="1" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="1.35"
+        android:scaleY="1.35">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M36,35a5,5 0,0 1,10 0V64H69a5,5 0,0 1,0 10H41a5,5 0,0 1,-5 -5Z" />
+        <path
+            android:fillAlpha="0.72"
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M55,36h14a3,3 0,0 1,0 6H55a3,3 0,0 1,0 -6ZM55,48h14a3,3 0,0 1,0 6H55a3,3 0,0 1,0 -6Z" />
+    </group>
+</vector>

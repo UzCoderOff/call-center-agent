@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Adaptive-icon foreground, inside the 66dp safe zone: a bold "L" whose
+     foot underlines two lines of text — a page of the firm's ledger. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M36,35a5,5 0,0 1,10 0V64H69a5,5 0,0 1,0 10H41a5,5 0,0 1,-5 -5Z" />
+    <path
+        android:fillAlpha="0.72"
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M55,36h14a3,3 0,0 1,0 6H55a3,3 0,0 1,0 -6ZM55,48h14a3,3 0,0 1,0 6H55a3,3 0,0 1,0 -6Z" />
+</vector>

@@ -4,3 +4,9 @@ app/build/
 local.properties
 *.iml
 .idea/
+
+# Signing keys must never be committed.
+*.p12
+*.jks
+*.keystore
+*.apk

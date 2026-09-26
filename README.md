@@ -1,107 +1,67 @@
-# Call Agent (Android)
+# Ledger — Android app
 
-Background app for the company's Honor phones: every 12 hours it checks the call
-log and scans storage for new call recordings, and uploads whatever it finds to
-your server. Works the same whether the phone has native auto call recording or
-needs the Cube ACR fallback — it doesn't hardcode a folder path.
+The firm's staff app. Staff install it, sign in with their portal username
+and password, and use the portal inside it. Nothing to configure on the
+phone — the server addresses are built in (`gradle.properties`).
 
-## Get an APK — no Android Studio needed
-1. Push this folder to a GitHub repo.
-2. GitHub Actions builds it automatically on push (see the **Actions** tab), or
-   trigger it manually with "Run workflow."
-3. Download the APK from that workflow run's **Artifacts** section.
+For people whose account has **"collect calls"** switched on in the portal
+(call-center staff), the app also collects the phone's calls and call
+recordings — a few minutes after each call, and hourly as a safety net. For
+everyone else it never asks for those
+permissions and never reads anything on the phone.
 
-## Install on a phone over AnyDesk
-1. Get the APK onto the phone (AnyDesk file transfer, or a download link) and
-   install it — allow "install from unknown sources" when prompted.
-2. Open the app and fill in:
-   - **Employee ID** — any short identifier for that person.
-   - **Server URL** — your temporary tunnel URL for now, your VPS URL later.
-     No rebuild needed to change this — just edit it in the app and hit Save again.
-3. Tap **Grant Permissions** — approve call log access, and turn on "All files
-   access" on the screen that opens next.
-4. Tap **Disable Battery Optimization** and approve it — MagicOS is aggressive
-   about killing background apps otherwise.
-5. Tap **Sync Now** to test immediately instead of waiting 12 hours.
+**Building, signing and handing out the app: see `DEPLOY.md` in
+`call-center-backend`.**
 
-## If a phone has no native auto call recording
-Install **Cube ACR** from the Play Store → open it → grant the Accessibility
-permission it asks for (that's what lets it capture call audio) → in its own
-settings, turn on "record all calls automatically." Nothing else to configure —
-the agent scans the whole phone for new audio files regardless of which app
-produced them.
+## How it works
 
-## What your server needs to handle
-`POST {serverUrl}/api/calls/sync` — multipart/form-data with:
-- a `payload` part — `application/json`, shape below, containing **every** call
-  log entry since the last sync (not just ones with a matched recording)
-- zero or more `recording` parts — the audio files that matched a call by
-  timestamp (within 5 minutes), filename as sent
-
-`payload` JSON shape:
-```json
-{
-  "employeeId": "employee_1",
-  "syncedAtMs": 1758210000000,
-  "callCount": 3,
-  "missedCount": 1,
-  "logIntegrity": null,
-  "calls": [
-    {
-      "callLogId": 482,
-      "phoneNumber": "+998901234567",
-      "callType": "missed",
-      "missed": true,
-      "callTimestampMs": 1758209000000,
-      "durationSeconds": 0,
-      "recordingFilename": null
-    },
-    {
-      "callLogId": 483,
-      "phoneNumber": "+998901234567",
-      "callType": "incoming",
-      "missed": false,
-      "callTimestampMs": 1758209400000,
-      "durationSeconds": 184,
-      "recordingFilename": "call_20250918_1430.m4a"
-    }
-  ]
-}
+```
+LauncherActivity ── not signed in ──> LoginActivity (username + password)
+        │                                   │
+        └──── signed in ──> refresh session + "collect calls?" from the server
+                                  │
+              collect calls: setup not finished ──> PermissionsActivity (setup guide)
+                                  │
+                           PortalActivity (the portal in a WebView)
 ```
 
-- `callType` — `incoming` / `outgoing` / `missed` / `rejected` / `voicemail` / `unknown`
-- `missed` — convenience boolean, `true` for `missed` or `rejected`
-- Every call in the log is sent, whether or not a recording exists for it.
-  `recordingFilename` is `null` when no audio file was matched (expected for
-  missed calls) or the exact filename of one of the `recording` multipart
-  parts in the same request when there is one — match on that to attach the
-  right audio to the right log entry, no guessing needed.
-- `logIntegrity` — `null` normally. A non-null string (`call_log_shrank`,
-  `possible_gap`, `no_new_entries_since_last_sync`) is a **heuristic flag**
-  that the device's call log may have had entries removed since the last
-  sync (e.g. someone cleared call history). It's not proof — treat it as
-  "worth a look," not "confirmed tampering."
+- **Sign-in** (`Api.signIn`) returns a device token, stored encrypted with an
+  Android Keystore key (`SecureStore`). The password is never stored. The
+  token renews the portal session whenever it expires, so staff stay signed
+  in; a developer can sign a phone out from the portal.
+- **The portal** runs in a WebView and talks to the app through
+  `window.LedgerApp` (sign out, renew session, sync now, share diagnostics).
+  `tel:` links open the dialer; other sites open in the browser.
+- **Sync** (`SyncWorker`) runs a few minutes after **every call** (Android
+  wakes the app when the call log changes, even when it's closed), hourly as
+  a safety net, after sign-in, and on demand. It looks for recordings only
+  in folders where recordings were found before, walking all storage at
+  most daily — so frequent syncs stay light on the battery. Each run:
+  - reads call-log entries since a day before the last successful sync, so
+    calls that were still in progress during a sync aren't lost; entries
+    already sent are skipped;
+  - waits until a call ended 2+ minutes ago, so the recording is finished;
+  - matches recordings to calls by file time around the call's **end**
+    (long calls used to lose their recordings), closest match first;
+  - reports call-log rows deleted before they could sync (gaps in the log's
+    row ids) — a heuristic, shown on the employee's page in the portal;
+  - uploads even when nothing is new, as a heartbeat for the portal's "phone
+    sync" status;
+  - never reads anything from before collection started on this phone.
+- **Phone setup** (`PermissionsActivity`, `PhoneMaker`): a guide, one step
+  per screen, with numbered "tap this" lines — call log, all-files access,
+  battery, and on Honor / Huawei / Xiaomi the maker's auto-launch screen
+  (opened directly; Honor's menu names in Uzbek and Russian). Each step is
+  checked when the person comes back and the next one opens by itself;
+  auto-launch can't be read by an app, so the person confirms it. Profile →
+  *Telefonni sozlash* in the portal opens it again.
+- **Icon**: adaptive (`res/drawable/ic_launcher_*.xml`, with a themed
+  version for Android 13+); the same mark is the portal's logo.
+- **Diagnostics**: every sync appends to an on-phone log; Profile → *Share
+  diagnostics* sends it (Telegram, email…) without a cable.
 
-Return any 2xx status on success. A non-2xx response (or no response) leaves
-that sync cycle unmarked, so the whole batch is retried next time — dedupe
-on the server by `employeeId` + `callLogId` in case a batch partially landed
-before a failure.
+## If a phone has no native call recording
 
-## Notes
-- Sync runs every 12 hours via WorkManager, plus on-demand via "Sync Now,"
-  and re-arms itself after a device reboot.
-- **Nothing from before install is ever uploaded.** The first time the sync
-  worker ever runs on a device, it records that moment as a permanent
-  "install floor." Every run after that — including all future ones —
-  hard-filters out any call log entry or recording file timestamped before
-  that floor, regardless of what LAST_SYNC or file-modified timestamps say.
-  A pre-existing voice memo or old recording sitting on the phone before
-  this app was installed will never be picked up, even if its file gets
-  touched/moved later and its modified-time changes.
-- Recordings are only ever attached to a call if they land within 5 minutes
-  of that call's actual logged timestamp — a stray audio file with a
-  coincidentally-recent modified time still won't upload unless it happens
-  to line up with a real call in the log.
-- `usesCleartextTraffic="true"` is set in the manifest so a plain `http://`
-  tunnel or IP works while you're pointing this at your PC. Once you're on a
-  real HTTPS domain (VPS), you can tighten this if you want.
+Install **Cube ACR** from the Play Store, grant its Accessibility permission,
+and turn on "record all calls automatically". The app scans all storage for
+new audio files, whichever app made them.

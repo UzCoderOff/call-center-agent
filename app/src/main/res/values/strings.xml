@@ -86,4 +86,9 @@
     <!-- Diagnostics -->
     <string name="diagnostics_empty">Hali diagnostika yozuvlari yoʻq — avval sinxronlashni kuting.</string>
     <string name="diagnostics_share">Diagnostikani yuborish</string>
+
+    <!-- Files from the portal (Excel exports, training materials) -->
+    <string name="download_started">Yuklab olinmoqda: %1$s</string>
+    <string name="download_failed">Faylni yuklab boʻlmadi. Internetni tekshirib, qayta urinib koʻring.</string>
+    <string name="download_no_app">Bu faylni ochadigan ilova topilmadi. U telefoningizdagi «Yuklanmalar» («Загрузки») papkasida.</string>
 </resources>

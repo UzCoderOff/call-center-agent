@@ -68,15 +68,22 @@ class SyncState(context: Context) {
         }
     }
 
-    fun markSynced(calls: List<CallEntry>, now: Long) {
+    /**
+     * Remembers these calls as uploaded. `windowStart` is the new
+     * lastSyncStart: entries the next run's look-back window can still see
+     * (from windowStart - OVERLAP_MS on) are kept, older ones dropped.
+     */
+    fun markSynced(calls: List<CallEntry>, windowStart: Long) {
         val json = try {
             JSONObject(prefs.getString(SYNCED, null) ?: "{}")
         } catch (e: Exception) {
             JSONObject()
         }
         for (call in calls) json.put(call.key, call.dateMs)
-        // Keep only what the next run's look-back window can still see.
-        val cutoff = now - OVERLAP_MS - RETENTION_SLACK_MS
+        // Keep only what the next run's look-back window can still see —
+        // measured from where that window starts, not from now: while working
+        // through a backlog the window starts days back.
+        val cutoff = windowStart - OVERLAP_MS - RETENTION_SLACK_MS
         val stale = json.keys().asSequence().filter { json.optLong(it, 0L) < cutoff }.toList()
         for (key in stale) json.remove(key)
         prefs.edit().putString(SYNCED, json.toString()).apply()

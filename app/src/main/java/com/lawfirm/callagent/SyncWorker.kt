@@ -59,6 +59,11 @@ private val FULL_SCAN_RETRY_MS = TimeUnit.HOURS.toMillis(1)
 // the rest follows on the next run.
 private const val MAX_CALLS_PER_BATCH = 400
 
+// And at most this many recordings in one upload: a day's backlog of
+// recordings on a slow connection would otherwise run past Android's
+// 10-minute limit for background work and start over every time.
+private const val MAX_RECORDINGS_PER_BATCH = 30
+
 data class CallEntry(
     val callLogId: Long,
     val number: String,
@@ -135,15 +140,16 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
         val synced = state.syncedKeys()
         val settledBefore = now - SETTLE_MS
         val newCalls = readCallLog(since).filter { it.dateMs >= floor && it.endMs <= settledBefore && it.key !in synced }
-        val calls = newCalls.take(MAX_CALLS_PER_BATCH)
+        val batch = newCalls.take(MAX_CALLS_PER_BATCH)
         val integrity = checkIntegrity(state)
 
-        val connected = calls.filter { !isMissedLike(it.type) && it.durationSec > 0 }
-        val matches = if (connected.isNotEmpty() && Permissions.files(ctx)) {
+        val connected = batch.filter { !isMissedLike(it.type) && it.durationSec > 0 }
+        val allMatches = if (connected.isNotEmpty() && Permissions.files(ctx)) {
             findMatches(state, connected, notBefore = maxOf(connected.minOf { it.dateMs } - MATCH_EARLY_MS, floor), now)
         } else {
             emptyMap<Long, File>()
         }
+        val (calls, matches) = capRecordings(batch, allMatches)
 
         // Sent even when there's nothing new: it doubles as a heartbeat, so the
         // portal can tell a quiet phone from one that stopped syncing, and it
@@ -152,9 +158,12 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
 
         when (val result = upload(token, payload, calls, matches)) {
             is UploadResult.Success -> {
-                state.markSynced(calls, now)
-                // Only move the window forward once everything in it is uploaded.
-                if (newCalls.size <= MAX_CALLS_PER_BATCH) state.lastSyncStart = now
+                // Move the window forward as far as everything is uploaded:
+                // to now, or — working through a backlog — to the last call
+                // sent, so the next run carries on from there instead of
+                // sending the same oldest calls again.
+                state.lastSyncStart = if (calls.size == newCalls.size) now else calls.last().dateMs
+                state.markSynced(calls, state.lastSyncStart)
                 integrity.maxId?.let { state.lastMaxId = it }
                 log("sync: ok — ${calls.size} call(s), ${matches.size} recording(s)" +
                     if (integrity.missing > 0) ", ${integrity.missing} deleted entr(y/ies) reported" else "")
@@ -260,6 +269,22 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
      * the battery); walks all of storage at most once a day, or when a
      * recording isn't where it used to be (at most hourly).
      */
+    /**
+     * At most MAX_RECORDINGS_PER_BATCH recordings go in one upload; the calls
+     * from the first one that doesn't fit onwards wait for the next run.
+     */
+    private fun capRecordings(batch: List<CallEntry>, matches: Map<Long, File>): Pair<List<CallEntry>, Map<Long, File>> {
+        if (matches.size <= MAX_RECORDINGS_PER_BATCH) return batch to matches
+        var seen = 0
+        val cut = batch.indexOfFirst { call ->
+            if (matches.containsKey(call.callLogId)) seen += 1
+            seen > MAX_RECORDINGS_PER_BATCH
+        }
+        val kept = if (cut < 0) batch else batch.take(cut)
+        val keptIds = kept.map { it.callLogId }.toSet()
+        return kept to matches.filterKeys { it in keptIds }
+    }
+
     private fun findMatches(state: SyncState, calls: List<CallEntry>, notBefore: Long, now: Long): Map<Long, File> {
         val known = state.recordingDirs().map { File(it) }.filter { it.isDirectory }
         val quick = known.isNotEmpty() && now - state.lastFullScan < FULL_SCAN_EVERY_MS

@@ -1,13 +1,21 @@
 package com.lawfirm.callagent
 
 import android.annotation.SuppressLint
+import android.app.DownloadManager
 import android.content.ActivityNotFoundException
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
+import android.webkit.URLUtil
+import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -15,7 +23,9 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.ProgressBar
+import android.widget.Toast
 import androidx.activity.addCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -29,7 +39,9 @@ import kotlinx.coroutines.withContext
  * website — change the portal and every phone shows the change on the next
  * open, with no app update. The app only adds what a website can't do:
  * a signed-in session that never asks for the password again, call-sync
- * controls, and tel: links that open the phone's dialer.
+ * controls, tel: links that open the phone's dialer, downloads (Excel
+ * exports, training materials) that open in the phone's own apps, and
+ * picking files to upload.
  *
  * The portal talks back through `window.LedgerApp` (see Bridge below and
  * call-center-portal/src/lib/appBridge.js).
@@ -42,6 +54,37 @@ class PortalActivity : AppCompatActivity() {
     private var lastRenewAt = 0L
     private var lastConfigAt = 0L
     private var updateOffered = false
+
+    // A file picker the portal asked for (<input type="file">), waiting for
+    // the person's choice.
+    private var fileCallback: ValueCallback<Array<Uri>>? = null
+    private val pickFiles = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val callback = fileCallback ?: return@registerForActivityResult
+        fileCallback = null
+        val data = result.data
+        val uris: Array<Uri>? =
+            if (result.resultCode != RESULT_OK || data == null) {
+                null
+            } else {
+                val clip = data.clipData
+                if (clip != null && clip.itemCount > 0) {
+                    Array(clip.itemCount) { clip.getItemAt(it).uri }
+                } else {
+                    data.data?.let { arrayOf(it) }
+                }
+            }
+        // null on cancel too — the page's file input must always get an answer.
+        callback.onReceiveValue(uris)
+    }
+
+    // Downloads started from the portal; each opens by itself when done.
+    private val pendingDownloads = mutableSetOf<Long>()
+    private val downloadDone = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L)
+            if (pendingDownloads.remove(id)) openDownloaded(id)
+        }
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -71,7 +114,39 @@ class PortalActivity : AppCompatActivity() {
             override fun onProgressChanged(view: WebView, newProgress: Int) {
                 progress.visibility = if (newProgress < 100) View.VISIBLE else View.GONE
             }
+
+            override fun onShowFileChooser(
+                view: WebView,
+                filePathCallback: ValueCallback<Array<Uri>>,
+                fileChooserParams: WebChromeClient.FileChooserParams,
+            ): Boolean {
+                fileCallback?.onReceiveValue(null)
+                fileCallback = filePathCallback
+                // Any file: the server checks the type again, and Android's
+                // picker understands MIME types, not the ".pdf,.docx" list the
+                // page gives.
+                val intent = Intent(Intent.ACTION_GET_CONTENT)
+                    .addCategory(Intent.CATEGORY_OPENABLE)
+                    .setType("*/*")
+                    .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, fileChooserParams.mode == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE)
+                return try {
+                    pickFiles.launch(intent)
+                    true
+                } catch (e: ActivityNotFoundException) {
+                    fileCallback = null
+                    false
+                }
+            }
         }
+        webView.setDownloadListener { url, userAgent, contentDisposition, mimetype, _ ->
+            startDownload(url, userAgent, contentDisposition, mimetype)
+        }
+        ContextCompat.registerReceiver(
+            this,
+            downloadDone,
+            IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
+            ContextCompat.RECEIVER_EXPORTED,
+        )
 
         onBackPressedDispatcher.addCallback(this) {
             if (webView.canGoBack()) {
@@ -82,8 +157,9 @@ class PortalActivity : AppCompatActivity() {
             }
         }
 
-        // The launcher/sign-in just loaded the settings; no need to again right away.
-        lastConfigAt = System.currentTimeMillis()
+        // Settings (and "is there a newer app?") are checked on the first
+        // resume right after opening, then again after 10 minutes away.
+        lastConfigAt = 0L
         if (savedInstanceState != null) webView.restoreState(savedInstanceState) else webView.loadUrl(BuildConfig.PORTAL_URL)
     }
 
@@ -111,8 +187,71 @@ class PortalActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        unregisterReceiver(downloadDone)
+        fileCallback?.onReceiveValue(null)
         webView.destroy()
         super.onDestroy()
+    }
+
+    /**
+     * A file the portal links to (an Excel export, a training material's
+     * PDF): the phone downloads it with this session's cookie, then opens it
+     * in whatever app handles it. Only the portal's own files — anything else
+     * opens outside the app.
+     */
+    private fun startDownload(url: String, userAgent: String, contentDisposition: String?, mimetype: String?) {
+        val uri = Uri.parse(url)
+        if (uri.scheme != "https" || uri.host != Uri.parse(BuildConfig.PORTAL_URL).host) {
+            openExternal(uri)
+            return
+        }
+        val name = downloadName(url, contentDisposition, mimetype)
+        val request = DownloadManager.Request(uri)
+            .addRequestHeader("Cookie", CookieManager.getInstance().getCookie(url) ?: "")
+            .addRequestHeader("User-Agent", userAgent)
+            .setTitle(name)
+            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+        if (!mimetype.isNullOrBlank()) request.setMimeType(mimetype)
+        // Android 10+: the phone's Downloads folder, no permission needed.
+        // Older phones: the app's own folder (no permission needed either).
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, name)
+        } else {
+            request.setDestinationInExternalFilesDir(this, Environment.DIRECTORY_DOWNLOADS, name)
+        }
+        try {
+            val manager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            pendingDownloads.add(manager.enqueue(request))
+            Toast.makeText(this, getString(R.string.download_started, name), Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, R.string.download_failed, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    // The file's own name (the server sends it UTF-8 encoded), made safe for
+    // the phone's file system.
+    private fun downloadName(url: String, contentDisposition: String?, mimetype: String?): String {
+        val encoded = contentDisposition?.let { FILENAME_UTF8.find(it)?.groupValues?.get(1) }
+        val decoded = encoded?.let { Uri.decode(it) }
+        val name = decoded ?: URLUtil.guessFileName(url, contentDisposition, mimetype)
+        return name.replace(UNSAFE_FILENAME_CHARS, "_").trim().ifEmpty { "ledger-file" }
+    }
+
+    private fun openDownloaded(id: Long) {
+        val manager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        val uri = manager.getUriForDownloadedFile(id)
+        if (uri == null) {
+            Toast.makeText(this, R.string.download_failed, Toast.LENGTH_LONG).show()
+            return
+        }
+        val view = Intent(Intent.ACTION_VIEW)
+            .setDataAndType(uri, manager.getMimeTypeForDownloadedFile(id) ?: "*/*")
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        try {
+            startActivity(view)
+        } catch (e: ActivityNotFoundException) {
+            Toast.makeText(this, R.string.download_no_app, Toast.LENGTH_LONG).show()
+        }
     }
 
     private suspend fun applyLatestConfig() {
@@ -244,6 +383,10 @@ class PortalActivity : AppCompatActivity() {
         @JavascriptInterface
         fun appVersion(): String = BuildConfig.VERSION_NAME
 
+        /** This version downloads and opens files (PDFs, Excel exports). */
+        @JavascriptInterface
+        fun canDownload(): Boolean = true
+
         @JavascriptInterface
         fun isCollectingCalls(): Boolean = Session.collectCalls(this@PortalActivity)
 
@@ -283,5 +426,7 @@ class PortalActivity : AppCompatActivity() {
     companion object {
         private const val CONFIG_REFRESH_MS = 10 * 60 * 1000L
         private const val RENEW_COOLDOWN_MS = 30 * 1000L
+        private val FILENAME_UTF8 = Regex("""filename\*=UTF-8''([^;]+)""", RegexOption.IGNORE_CASE)
+        private val UNSAFE_FILENAME_CHARS = Regex("""[\\/:*?"<>|]""")
     }
 }

@@ -44,6 +44,25 @@
         <item>Orqaga qayting — keyingi qadam oʻzi ochiladi.</item>
     </string-array>
 
+    <string name="setup_open_phone">Telefon ilovasini ochish</string>
+    <string name="setup_record_title">Qoʻngʻiroqlarni yozib olish</string>
+    <string name="setup_record_text">Ledger qoʻngʻiroqni oʻzi yozmaydi: telefonning oʻzi yozib oladi, Ledger esa yozuvni portalga yuboradi. Buning uchun telefon ilovasida avtomatik yozib olish yoqilgan boʻlishi kerak.</string>
+    <string-array name="setup_record_howto_honor">
+        <item>«Telefon ilovasini ochish» tugmasini bosing.</item>
+        <item>Yuqori oʻng burchakdagi «⋮» (uch nuqta) → «Sozlamalar» («Настройки»).</item>
+        <item>«Qoʻngʻiroqlarni yozib olish» («Запись вызовов») boʻlimini oching.</item>
+        <item>«Avtomatik yozib olish» («Автоматическая запись вызовов») ni yoqing va «Barcha qoʻngʻiroqlar» («Все вызовы») ni tanlang.</item>
+        <item>Orqaga qayting va shu yerda «Bajardim» ni bosing.</item>
+        <item>Bunday boʻlim topilmasa — rahbar yoki dasturchiga ayting.</item>
+    </string-array>
+    <string-array name="setup_record_howto_other">
+        <item>«Telefon ilovasini ochish» tugmasini bosing.</item>
+        <item>«⋮» (uch nuqta) → «Sozlamalar» («Настройки»).</item>
+        <item>«Qoʻngʻiroqlarni yozib olish» («Запись звонков» yoki «Запись вызовов») boʻlimida avtomatik yozib olishni barcha qoʻngʻiroqlar uchun yoqing.</item>
+        <item>Orqaga qayting va shu yerda «Bajardim» ni bosing.</item>
+        <item>Bunday boʻlim topilmasa — rahbar yoki dasturchiga ayting.</item>
+    </string-array>
+
     <string name="setup_battery_title">Batareya</string>
     <string name="setup_battery_text">Telefon quvvatni tejash uchun ilovani toʻxtatib qoʻymasligi kerak — aks holda qoʻngʻiroqlar portalga bormay qoladi. Ilova batareyani deyarli sarflamaydi.</string>
     <string-array name="setup_battery_howto">

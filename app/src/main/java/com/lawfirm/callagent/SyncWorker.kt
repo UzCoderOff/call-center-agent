@@ -154,7 +154,7 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
         // Sent even when there's nothing new: it doubles as a heartbeat, so the
         // portal can tell a quiet phone from one that stopped syncing, and it
         // still reports deleted call-log entries.
-        val payload = buildPayload(calls, matches, integrity)
+        val payload = buildPayload(calls, matches, integrity, Permissions.files(ctx))
 
         when (val result = upload(token, payload, calls, matches)) {
             is UploadResult.Success -> {
@@ -374,7 +374,7 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
     // different folders can't be confused on the server.
     private fun partName(call: CallEntry, file: File) = "${call.callLogId}_${file.name}"
 
-    private fun buildPayload(calls: List<CallEntry>, matches: Map<Long, File>, integrity: Integrity): JSONObject {
+    private fun buildPayload(calls: List<CallEntry>, matches: Map<Long, File>, integrity: Integrity, filesAccess: Boolean): JSONObject {
         val callsJson = JSONArray()
         for (call in calls) {
             val file = matches[call.callLogId]
@@ -397,6 +397,9 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
             put("missedCount", calls.count { isMissedLike(it.type) })
             put("logIntegrity", if (integrity.missing > 0) "entries_deleted" else JSONObject.NULL)
             put("missingEntries", integrity.missing)
+            // Whether recordings can be read at all — the portal tells the
+            // person (and the managers) when they can't (2.3.0+).
+            put("filesAccess", filesAccess)
             put("calls", callsJson)
         }
     }

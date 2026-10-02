@@ -19,6 +19,7 @@ object PhoneMaker {
 
     private const val PREFS = "ledger_setup"
     private const val AUTO_LAUNCH_DONE = "auto_launch_done"
+    private const val RECORDING_DONE = "recording_done"
 
     val kind: Kind by lazy {
         val name = "${Build.MANUFACTURER} ${Build.BRAND}".lowercase()
@@ -41,6 +42,33 @@ object PhoneMaker {
 
     fun confirmAutoLaunch(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(AUTO_LAUNCH_DONE, true).apply()
+    }
+
+    /**
+     * Calls are recorded by the phone's own Phone app, not by Ledger (Android
+     * doesn't let apps record calls) — automatic recording has to be on
+     * there. An app can't read that setting, so the person confirms it; once
+     * a recording has been found, it's on anyway.
+     */
+    val recordingHowTo: Int
+        get() = if (kind == Kind.HONOR || kind == Kind.HUAWEI) R.array.setup_record_howto_honor else R.array.setup_record_howto_other
+
+    fun recordingConfirmed(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(RECORDING_DONE, false) ||
+            SyncState(context).recordingDirs().isNotEmpty()
+
+    fun confirmRecording(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(RECORDING_DONE, true).apply()
+    }
+
+    /** Opens the Phone app (its settings hold automatic call recording). */
+    fun openPhoneApp(context: Context) {
+        try {
+            context.startActivity(Intent(Intent.ACTION_DIAL))
+            DiagnosticLog.append(context, "setup: opened the Phone app for call recording")
+        } catch (e: Exception) {
+            DiagnosticLog.append(context, "setup: couldn't open the Phone app: ${e.message}")
+        }
     }
 
     private fun screen(pkg: String, cls: String) = Intent().setComponent(ComponentName(pkg, cls))

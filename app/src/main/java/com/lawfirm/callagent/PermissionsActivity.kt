@@ -21,8 +21,9 @@ import androidx.appcompat.app.AppCompatActivity
  * per-person switch). One step per screen, in plain words, with exactly
  * what to tap:
  *
- *   1. call log   2. recordings (all files)   3. battery
- *   4. auto-launch — Honor / Huawei / Xiaomi only (their own battery manager)
+ *   1. call log   2. recordings (all files)   3. automatic call recording
+ *   in the Phone app   4. battery
+ *   5. auto-launch — Honor / Huawei / Xiaomi only (their own battery manager)
  *
  * When the person comes back from a system screen with the step done, the
  * next step opens by itself. Auto-launch can't be checked by an app, so the
@@ -105,6 +106,15 @@ class PermissionsActivity : AppCompatActivity() {
                 R.array.setup_files_howto, R.string.setup_open_settings, required = true,
                 isDone = { Permissions.files(this) },
                 open = { openFilesAccess() },
+            ),
+            // Ledger sends the recordings the phone itself makes: without
+            // automatic recording on, calls arrive with no recording.
+            Step(
+                R.drawable.ic_step_record, R.string.setup_record_title, R.string.setup_record_text,
+                PhoneMaker.recordingHowTo, R.string.setup_open_phone, required = false,
+                isDone = { PhoneMaker.recordingConfirmed(this) },
+                open = { PhoneMaker.openPhoneApp(this) },
+                confirm = { PhoneMaker.confirmRecording(this) },
             ),
             Step(
                 R.drawable.ic_step_battery, R.string.setup_battery_title, R.string.setup_battery_text,

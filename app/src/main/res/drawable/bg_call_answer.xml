@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Answer a call: a green round button. -->
-<ripple xmlns:android="http://schemas.android.com/apk/res/android" android:color="#33FFFFFF">
+<ripple xmlns:android="http://schemas.android.com/apk/res/android" android:color="#40FFFFFF">
     <item>
         <shape android:shape="oval">
-            <solid android:color="@color/good" />
+            <solid android:color="#34C759" />
         </shape>
     </item>
 </ripple>

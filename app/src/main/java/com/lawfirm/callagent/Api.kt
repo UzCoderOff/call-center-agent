@@ -117,10 +117,46 @@ object Api {
         }
     }
 
-    /** This phone's Google push address, so a call can wake it. */
+    /** This phone's Google push address: Ledger's notifications, and a call can wake it. */
     fun sendPushToken(token: String, pushToken: String) {
         val body = JSONObject().put("token", pushToken)
         val request = authed(token, "/api/device/push").post(body.toString().toRequestBody(JSON)).build()
+        client.newCall(request).execute().use { parse(it) }
+    }
+
+    /** One of Ledger's notifications for this person (the push carries only its id). */
+    data class Notice(
+        val id: Long,
+        val kind: String?,
+        val title: String,
+        val body: String?,
+        val link: String?,
+        val phone: String?,
+        val tag: String?,
+    )
+
+    fun notice(token: String, id: Long): Notice {
+        val request = authed(token, "/api/device/notices/$id").get().build()
+        client.newCall(request).execute().use { res ->
+            val json = parse(res)
+            fun text(key: String) = json.optString(key).takeIf { !json.isNull(key) && it.isNotBlank() }
+            return Notice(
+                id = json.getLong("id"),
+                kind = text("kind"),
+                title = json.optString("title", "Ledger"),
+                body = text("body"),
+                link = text("link"),
+                phone = text("phone"),
+                tag = text("tag"),
+            )
+        }
+    }
+
+    /** "Remind me" on a call coming in: call this number back in `minutes`. */
+    fun remindMe(token: String, phone: String, name: String?, minutes: Int) {
+        val body = JSONObject().put("phone", phone).put("minutes", minutes)
+        if (!name.isNullOrBlank()) body.put("name", name)
+        val request = authed(token, "/api/device/reminders").post(body.toString().toRequestBody(JSON)).build()
         client.newCall(request).execute().use { parse(it) }
     }
 

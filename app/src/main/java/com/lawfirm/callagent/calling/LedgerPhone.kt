@@ -48,6 +48,8 @@ object LedgerPhone {
     }
 
     private const val IDLE_STOP_MS = 60_000L
+    private val RETRY_DELAYS_MS = longArrayOf(3_000L, 10_000L, 30_000L)
+    private var signInRetries = 0
     private val handler = Handler(Looper.getMainLooper())
     private var core: Core? = null
     private var appContext: Context? = null
@@ -131,6 +133,7 @@ object LedgerPhone {
         c.addAccount(account)
         c.defaultAccount = account
         c.addListener(coreListener)
+        signInRetries = 0
         c.start()
         core = c
         DiagnosticLog.append(ctx, "phone line: started (${calling.ext})")
@@ -261,7 +264,19 @@ object LedgerPhone {
 
         override fun onAccountRegistrationStateChanged(core: Core, account: org.linphone.core.Account, state: RegistrationState?, message: String) {
             val ctx = appContext ?: return
-            if (state == RegistrationState.Failed) DiagnosticLog.append(ctx, "phone line: sign-in failed ($message)")
+            when (state) {
+                RegistrationState.Ok -> signInRetries = 0
+                RegistrationState.Failed -> {
+                    DiagnosticLog.append(ctx, "phone line: sign-in failed ($message)")
+                    // Try again a few times, later each time (the line may
+                    // just be catching up with a new sign-in).
+                    if (signInRetries < RETRY_DELAYS_MS.size) {
+                        val delay = RETRY_DELAYS_MS[signInRetries++]
+                        handler.postDelayed({ if (this@LedgerPhone.core === core) core.refreshRegisters() }, delay)
+                    }
+                }
+                else -> {}
+            }
         }
     }
 

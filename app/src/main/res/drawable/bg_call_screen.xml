@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The call screen: dark, like a phone's own dialer. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient
+        android:angle="270"
+        android:endColor="#0E131B"
+        android:startColor="#25324A"
+        android:type="linear" />
+</shape>

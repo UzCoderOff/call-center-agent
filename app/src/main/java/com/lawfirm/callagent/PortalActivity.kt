@@ -33,6 +33,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import com.lawfirm.callagent.calling.CallingSetup
 import com.lawfirm.callagent.calling.LedgerPhone
+import com.lawfirm.callagent.push.PushSetup
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -166,7 +167,30 @@ class PortalActivity : AppCompatActivity() {
         // Settings (and "is there a newer app?") are checked on the first
         // resume right after opening, then again after 10 minutes away.
         lastConfigAt = 0L
-        if (savedInstanceState != null) webView.restoreState(savedInstanceState) else webView.loadUrl(BuildConfig.PORTAL_URL)
+        if (savedInstanceState != null) {
+            webView.restoreState(savedInstanceState)
+        } else {
+            // Opened from a notification: straight to its page.
+            webView.loadUrl(BuildConfig.PORTAL_URL.trimEnd('/') + (intent.getStringExtra(EXTRA_PATH) ?: ""))
+        }
+        intent.getStringExtra(EXTRA_CALL)?.let { placeCall(it) }
+    }
+
+    // A notification tapped while Ledger is open: its page, or its Call button.
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        intent.getStringExtra(EXTRA_PATH)?.let { openPath(it) }
+        intent.getStringExtra(EXTRA_CALL)?.let { placeCall(it) }
+    }
+
+    // Inside the portal without reloading it when it's already there
+    // (window.ledgerNavigate, portal src/App.jsx); otherwise load the page.
+    private fun openPath(path: String) {
+        val safe = if (path.startsWith("/") && !path.startsWith("//")) path else "/"
+        val quoted = org.json.JSONObject.quote(safe)
+        webView.evaluateJavascript("(function(){if(window.ledgerNavigate){window.ledgerNavigate($quoted);return true}return false})()") { done ->
+            if (done != "true") webView.loadUrl(BuildConfig.PORTAL_URL.trimEnd('/') + safe)
+        }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -281,7 +305,10 @@ class PortalActivity : AppCompatActivity() {
         val wasCollecting = Session.collectCalls(this)
         val wasCalling = Session.calling(this) != null
         Session.saveConfig(this, config)
-        withContext(Dispatchers.IO) { CallingSetup.sync(this@PortalActivity, token, config.calling) }
+        withContext(Dispatchers.IO) {
+            CallingSetup.sync(this@PortalActivity, token, config.calling)
+            PushSetup.sync(this@PortalActivity, token)
+        }
         // Calling just switched on (or signed in again): on the line now —
         // if Ledger is still on screen (the answer can come after it left).
         if (config.calling != null && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
@@ -473,6 +500,21 @@ class PortalActivity : AppCompatActivity() {
 
     // Calling is on: the microphone and notifications, once.
     companion object {
+        private const val EXTRA_PATH = "path"
+        private const val EXTRA_CALL = "call"
+
+        /** Ledger at a page of the portal ("/chat/3") — from a notification. */
+        fun openIntent(context: Context, path: String): Intent =
+            Intent(context, PortalActivity::class.java)
+                .putExtra(EXTRA_PATH, path)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+
+        /** Ledger, calling this number — a reminder's Call button. */
+        fun callIntent(context: Context, phone: String): Intent =
+            Intent(context, PortalActivity::class.java)
+                .putExtra(EXTRA_CALL, phone)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+
         private const val CONFIG_REFRESH_MS = 10 * 60 * 1000L
         private const val RENEW_COOLDOWN_MS = 30 * 1000L
         private val FILENAME_UTF8 = Regex("""filename\*=UTF-8''([^;]+)""", RegexOption.IGNORE_CASE)

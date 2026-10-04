@@ -6,6 +6,7 @@ import android.content.Intent
 import android.webkit.CookieManager
 import com.lawfirm.callagent.calling.CallingSetup
 import com.lawfirm.callagent.calling.LedgerPhone
+import com.lawfirm.callagent.push.PushSetup
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -44,8 +45,10 @@ object AppFlow {
             val config = Api.config(token)
             withContext(Dispatchers.Main) { applyCookies(cookies) }
             Session.saveConfig(context, config)
-            // Calling through Ledger's line: this phone's sign-in and push address.
+            // Calling through Ledger's line: this phone's sign-in.
             CallingSetup.sync(context, token, config.calling)
+            // Notifications (and calls): this phone's push address.
+            PushSetup.sync(context, token)
             Refresh.Ok(config)
         } catch (e: Api.HttpError) {
             if (e.status == 401) Refresh.SignedOut else Refresh.Offline

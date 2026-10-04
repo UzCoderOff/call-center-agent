@@ -1,14 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Mute / speaker during a call: grey round, accent while on. -->
-<selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:state_activated="true">
-        <shape android:shape="oval">
-            <solid android:color="@color/accent" />
-        </shape>
-    </item>
+<!-- Mute / keypad / speaker: see-through, white when switched on. -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android" android:color="#40FFFFFF">
     <item>
-        <shape android:shape="oval">
-            <solid android:color="@color/fill" />
-        </shape>
+        <selector>
+            <item android:state_activated="true">
+                <shape android:shape="oval">
+                    <solid android:color="#FFFFFF" />
+                </shape>
+            </item>
+            <item>
+                <shape android:shape="oval">
+                    <solid android:color="#2EFFFFFF" />
+                </shape>
+            </item>
+        </selector>
     </item>
-</selector>
+</ripple>

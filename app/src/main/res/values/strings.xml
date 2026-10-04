@@ -148,5 +148,20 @@
     <string name="call_end">Tugatish</string>
     <string name="call_mute">Ovozsiz</string>
     <string name="call_speaker">Karnay</string>
+    <string name="call_outgoing">Qoʻngʻiroq qilinmoqda…</string>
+    <string name="call_keypad">Klaviatura</string>
+    <string name="call_remind">Eslatma</string>
+    <string name="remind_title">Qachon qayta qoʻngʻiroq qilasiz?</string>
+    <string name="remind_15m">15 daqiqadan keyin</string>
+    <string name="remind_1h">1 soatdan keyin</string>
+    <string name="remind_3h">3 soatdan keyin</string>
+    <string name="remind_tomorrow">Ertaga ertalab (9:00)</string>
+    <string name="remind_cancel">Bekor qilish</string>
+    <string name="remind_saved">Eslatma qoʻyildi — vaqti kelganda Ledger eslatadi</string>
+    <string name="remind_failed">Eslatma qoʻyilmadi: internetni tekshiring</string>
+    <string name="notice_channel_reminders">Eslatmalar</string>
+    <string name="notice_channel_chat">Chat</string>
+    <string name="notice_channel_updates">Ledger xabarlari</string>
+    <string name="notice_call_back">Qoʻngʻiroq qilish</string>
     <string name="call_no_outside_line">Firma raqami hali ulanmagan — qoʻngʻiroq oddiy telefon orqali.</string>
 </resources>

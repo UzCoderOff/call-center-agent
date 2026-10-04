@@ -93,7 +93,7 @@
 
         <!-- Google push: wakes Ledger for a call coming in. -->
         <service
-            android:name=".calling.LedgerMessagingService"
+            android:name=".push.LedgerMessagingService"
             android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />

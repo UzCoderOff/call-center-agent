@@ -34,8 +34,8 @@ android {
         applicationId "com.lawfirm.callagent"
         minSdk 26
         targetSdk 34
-        versionCode 6
-        versionName "3.0.0"
+        versionCode 7
+        versionName "3.0.1"
 
         // The calling engine's native code: 64- and 32-bit ARM phones only
         // (plus the PC's emulator for a test build), to keep the app small.

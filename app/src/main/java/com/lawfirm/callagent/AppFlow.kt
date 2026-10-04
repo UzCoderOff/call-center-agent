@@ -86,12 +86,13 @@ object AppFlow {
     }
 
     /**
-     * Whether the phone setup still lacks something this person needs: the
-     * call log and files (calls collected), or the microphone and
-     * notifications (calls through Ledger's line).
+     * Whether the phone setup still lacks something this person needs:
+     * notifications (everyone — chat, reminders, missed calls), the call log
+     * and files (calls collected), the microphone (calls through Ledger's line).
      */
     fun setupMissing(context: Context): Boolean =
-        (Session.collectCalls(context) && !Permissions.requiredGranted(context)) ||
+        !Permissions.notifications(context) ||
+            (Session.collectCalls(context) && !Permissions.requiredGranted(context)) ||
             (Session.calling(context) != null && !Permissions.callingReady(context))
 
     /**

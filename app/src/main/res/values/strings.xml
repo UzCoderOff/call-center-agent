@@ -96,7 +96,7 @@
     </string-array>
 
     <string name="setup_notify_title">Bildirishnomalar</string>
-    <string name="setup_notify_text">Kiruvchi qoʻngʻiroq telefon ekranida chiqishi uchun Ledgerga bildirishnomalar kerak.</string>
+    <string name="setup_notify_text">Chat xabarlari, eslatmalar va javobsiz qoʻngʻiroqlar telefoningizga kelishi uchun Ledgerga bildirishnomalar kerak.</string>
     <string-array name="setup_notify_howto">
         <item>«Ruxsat berish» tugmasini bosing.</item>
         <item>Chiqqan oynada «Ruxsat berish» («Разрешить») ni tanlang.</item>
@@ -114,6 +114,7 @@
     <string name="setup_ready_title">Hammasi tayyor!</string>
     <string name="setup_ready_text">Endi har bir qoʻngʻiroq bir necha daqiqadan soʻng portalda paydo boʻladi. Telefonni odatdagidek ishlatavering.</string>
     <string name="setup_ready_text_calling">Endi qoʻngʻiroqlar Ledger yopiq boʻlsa ham sizga keladi. Telefonni odatdagidek ishlatavering.</string>
+    <string name="setup_ready_text_notify">Endi chat xabarlari va eslatmalar Ledger yopiq boʻlsa ham telefoningizga keladi.</string>
     <string name="setup_open_portal">Portalni ochish</string>
 
     <!-- Portal -->

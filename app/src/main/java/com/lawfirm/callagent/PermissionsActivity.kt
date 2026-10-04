@@ -105,6 +105,16 @@ class PermissionsActivity : AppCompatActivity() {
     private fun buildSteps(): List<Step> {
         val list = mutableListOf<Step>()
         if (collecting) list += collectSteps()
+        // Everyone: chat, reminders, missed calls (and calls) come as
+        // notifications — Android 13+ shows none until the app is allowed.
+        if (Build.VERSION.SDK_INT >= 33 || !Permissions.notifications(this)) {
+            list += Step(
+                R.drawable.ic_step_notify, R.string.setup_notify_title, R.string.setup_notify_text,
+                R.array.setup_notify_howto, R.string.setup_allow, required = true,
+                isDone = { Permissions.notifications(this) },
+                open = { requestNotifications() },
+            )
+        }
         if (calling) list += callingSteps()
         list += Step(
             R.drawable.ic_step_battery, R.string.setup_battery_title, R.string.setup_battery_text,
@@ -161,14 +171,6 @@ class PermissionsActivity : AppCompatActivity() {
                 open = { requestRuntime(Manifest.permission.RECORD_AUDIO) },
             ),
         )
-        if (Build.VERSION.SDK_INT >= 33 || !Permissions.notifications(this)) {
-            list += Step(
-                R.drawable.ic_step_notify, R.string.setup_notify_title, R.string.setup_notify_text,
-                R.array.setup_notify_howto, R.string.setup_allow, required = true,
-                isDone = { Permissions.notifications(this) },
-                open = { requestNotifications() },
-            )
-        }
         if (Build.VERSION.SDK_INT >= 34) {
             list += Step(
                 R.drawable.ic_step_lock, R.string.setup_lock_title, R.string.setup_lock_text,
@@ -204,7 +206,13 @@ class PermissionsActivity : AppCompatActivity() {
             counter.visibility = View.INVISIBLE
             icon.setImageResource(R.drawable.ic_step_done)
             title.setText(R.string.setup_ready_title)
-            text.setText(if (collecting) R.string.setup_ready_text else R.string.setup_ready_text_calling)
+            text.setText(
+                when {
+                    collecting -> R.string.setup_ready_text
+                    calling -> R.string.setup_ready_text_calling
+                    else -> R.string.setup_ready_text_notify
+                }
+            )
             howTo.visibility = View.GONE
             doneLabel.visibility = View.GONE
             primary.setText(R.string.setup_open_portal)

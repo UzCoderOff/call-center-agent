@@ -64,7 +64,7 @@
     </string-array>
 
     <string name="setup_battery_title">Batareya</string>
-    <string name="setup_battery_text">Telefon quvvatni tejash uchun ilovani toʻxtatib qoʻymasligi kerak — aks holda qoʻngʻiroqlar portalga bormay qoladi. Ilova batareyani deyarli sarflamaydi.</string>
+    <string name="setup_battery_text">Telefon quvvatni tejash uchun ilovani toʻxtatib qoʻymasligi kerak — aks holda qoʻngʻiroqlar sizga kelmay yoki portalga bormay qolishi mumkin. Ilova batareyani deyarli sarflamaydi.</string>
     <string-array name="setup_battery_howto">
         <item>«Ruxsat berish» tugmasini bosing.</item>
         <item>Chiqqan oynada «Ruxsat berish» («Разрешить») ni tanlang.</item>
@@ -86,8 +86,34 @@
         <item>Orqaga qayting va shu yerda «Bajardim» ni bosing.</item>
     </string-array>
 
+    <!-- Calls through Ledger's own line (people with calling on). -->
+    <string name="setup_mic_title">Mikrofon</string>
+    <string name="setup_mic_text">Qoʻngʻiroqlar Ledger orqali boʻladi: suhbatdoshingiz sizni eshitishi uchun ilovaga mikrofon kerak. Mikrofon faqat qoʻngʻiroq paytida ishlaydi.</string>
+    <string-array name="setup_mic_howto">
+        <item>«Ruxsat berish» tugmasini bosing.</item>
+        <item>Chiqqan oynada «Ilovadan foydalanish vaqtida» («При использовании приложения») ni tanlang.</item>
+        <item>Agar oʻrniga sozlamalar ochilsa: «Ruxsatlar» → «Mikrofon» → «Ilovadan foydalanish vaqtida» («Разрешения» → «Микрофон»), soʻng orqaga qayting.</item>
+    </string-array>
+
+    <string name="setup_notify_title">Bildirishnomalar</string>
+    <string name="setup_notify_text">Kiruvchi qoʻngʻiroq telefon ekranida chiqishi uchun Ledgerga bildirishnomalar kerak.</string>
+    <string-array name="setup_notify_howto">
+        <item>«Ruxsat berish» tugmasini bosing.</item>
+        <item>Chiqqan oynada «Ruxsat berish» («Разрешить») ni tanlang.</item>
+        <item>Agar oʻrniga sozlamalar ochilsa: «Bildirishnomalar» («Уведомления») ni yoqing, soʻng orqaga qayting.</item>
+    </string-array>
+
+    <string name="setup_lock_title">Qoʻngʻiroq qulflangan ekranda</string>
+    <string name="setup_lock_text">Telefon qulflangan boʻlsa ham kiruvchi qoʻngʻiroq butun ekranda chiqishi uchun buni bir marta yoqing.</string>
+    <string-array name="setup_lock_howto">
+        <item>«Sozlamalarni ochish» tugmasini bosing.</item>
+        <item>«Ledger» yonidagi tugmani yoqing («Полноэкранные уведомления»).</item>
+        <item>Orqaga qayting — keyingi qadam oʻzi ochiladi.</item>
+    </string-array>
+
     <string name="setup_ready_title">Hammasi tayyor!</string>
     <string name="setup_ready_text">Endi har bir qoʻngʻiroq bir necha daqiqadan soʻng portalda paydo boʻladi. Telefonni odatdagidek ishlatavering.</string>
+    <string name="setup_ready_text_calling">Endi qoʻngʻiroqlar Ledger yopiq boʻlsa ham sizga keladi. Telefonni odatdagidek ishlatavering.</string>
     <string name="setup_open_portal">Portalni ochish</string>
 
     <!-- Portal -->
@@ -123,7 +149,4 @@
     <string name="call_mute">Ovozsiz</string>
     <string name="call_speaker">Karnay</string>
     <string name="call_no_outside_line">Firma raqami hali ulanmagan — qoʻngʻiroq oddiy telefon orqali.</string>
-    <string name="call_fullscreen_title">Qoʻngʻiroqlar qulflangan ekranda</string>
-    <string name="call_fullscreen_text">Telefon qulflangan boʻlsa ham kiruvchi qoʻngʻiroq butun ekranda chiqishi uchun keyingi oynada Ledger uchun ruxsatni yoqing.</string>
-    <string name="call_fullscreen_open">Ochish</string>
 </resources>

@@ -71,17 +71,25 @@ object AppFlow {
     fun routeSignedIn(activity: Activity) {
         if (Session.collectCalls(activity)) {
             SyncState.ensureInstallFloor(activity)
-            if (Permissions.requiredGranted(activity)) {
-                SyncScheduler.schedule(activity)
-            } else if (!permissionsPostponed) {
-                activity.startActivity(Intent(activity, PermissionsActivity::class.java))
-                return
-            }
+            if (Permissions.requiredGranted(activity)) SyncScheduler.schedule(activity)
         } else {
             SyncScheduler.cancel(activity)
         }
+        if (setupMissing(activity) && !permissionsPostponed) {
+            activity.startActivity(Intent(activity, PermissionsActivity::class.java))
+            return
+        }
         activity.startActivity(Intent(activity, PortalActivity::class.java))
     }
+
+    /**
+     * Whether the phone setup still lacks something this person needs: the
+     * call log and files (calls collected), or the microphone and
+     * notifications (calls through Ledger's line).
+     */
+    fun setupMissing(context: Context): Boolean =
+        (Session.collectCalls(context) && !Permissions.requiredGranted(context)) ||
+            (Session.calling(context) != null && !Permissions.callingReady(context))
 
     /**
      * Signs this phone out: revokes the token on the server (best effort),

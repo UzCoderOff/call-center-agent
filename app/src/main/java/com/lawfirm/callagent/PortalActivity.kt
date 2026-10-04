@@ -82,8 +82,6 @@ class PortalActivity : AppCompatActivity() {
 
     // Calling needs the microphone and (Android 13+) notifications: asked
     // once calling is on for this person.
-    private var callingAsked = false
-    private val askCallingPermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { checkFullScreenCalls() }
 
     // Downloads started from the portal; each opens by itself when done.
     private val pendingDownloads = mutableSetOf<Long>()
@@ -281,25 +279,27 @@ class PortalActivity : AppCompatActivity() {
         }
 
         val wasCollecting = Session.collectCalls(this)
+        val wasCalling = Session.calling(this) != null
         Session.saveConfig(this, config)
         withContext(Dispatchers.IO) { CallingSetup.sync(this@PortalActivity, token, config.calling) }
         // Calling just switched on (or signed in again): on the line now —
         // if Ledger is still on screen (the answer can come after it left).
         if (config.calling != null && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
             LedgerPhone.setForeground(this, true)
-            askForCalling()
         }
         if (config.collectCalls) {
             SyncState.ensureInstallFloor(this)
-            if (Permissions.requiredGranted(this)) {
-                SyncScheduler.schedule(this)
-            } else if (!wasCollecting || !AppFlow.permissionsPostponed) {
-                startActivity(
-                    Intent(this, PermissionsActivity::class.java).putExtra(PermissionsActivity.EXTRA_FROM_PORTAL, true)
-                )
-            }
+            if (Permissions.requiredGranted(this)) SyncScheduler.schedule(this)
         } else {
             SyncScheduler.cancel(this)
+        }
+        // The phone setup for what's missing: always when something was just
+        // switched on, otherwise unless the person chose "later".
+        val switchedOn = (config.collectCalls && !wasCollecting) || (config.calling != null && !wasCalling)
+        if (AppFlow.setupMissing(this) && (switchedOn || !AppFlow.permissionsPostponed)) {
+            startActivity(
+                Intent(this, PermissionsActivity::class.java).putExtra(PermissionsActivity.EXTRA_FROM_PORTAL, true)
+            )
         }
         maybeOfferUpdate(config)
     }
@@ -472,34 +472,6 @@ class PortalActivity : AppCompatActivity() {
     }
 
     // Calling is on: the microphone and notifications, once.
-    private fun askForCalling() {
-        if (callingAsked) return
-        callingAsked = true
-        val wanted = mutableListOf(android.Manifest.permission.RECORD_AUDIO)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) wanted += android.Manifest.permission.POST_NOTIFICATIONS
-        val missing = wanted.filter { ContextCompat.checkSelfPermission(this, it) != android.content.pm.PackageManager.PERMISSION_GRANTED }
-        if (missing.isEmpty()) checkFullScreenCalls() else askCallingPermissions.launch(missing.toTypedArray())
-    }
-
-    // Android 14: showing a call over the lock screen is a setting of its own.
-    private fun checkFullScreenCalls() {
-        if (Build.VERSION.SDK_INT < 34) return
-        val manager = getSystemService(android.app.NotificationManager::class.java)
-        if (manager.canUseFullScreenIntent()) return
-        AlertDialog.Builder(this)
-            .setTitle(R.string.call_fullscreen_title)
-            .setMessage(R.string.call_fullscreen_text)
-            .setPositiveButton(R.string.call_fullscreen_open) { _, _ ->
-                try {
-                    startActivity(Intent(android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:$packageName")))
-                } catch (e: ActivityNotFoundException) {
-                    // Older settings app: nothing to open.
-                }
-            }
-            .setNegativeButton(R.string.update_later, null)
-            .show()
-    }
-
     companion object {
         private const val CONFIG_REFRESH_MS = 10 * 60 * 1000L
         private const val RENEW_COOLDOWN_MS = 30 * 1000L

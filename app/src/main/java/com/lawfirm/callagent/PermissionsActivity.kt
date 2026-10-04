@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -15,15 +16,20 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 
 /**
- * Phone setup, only for people whose calls are collected (the portal's
- * per-person switch). One step per screen, in plain words, with exactly
- * what to tap:
+ * Phone setup, for people whose calls are collected (the portal's
+ * per-person switch) and for people who call through Ledger's line. One
+ * step per screen, in plain words, with exactly what to tap:
  *
- *   1. call log   2. recordings (all files)   3. automatic call recording
- *   in the Phone app   4. battery
- *   5. auto-launch — Honor / Huawei / Xiaomi only (their own battery manager)
+ *   collected calls:  call log, recordings (all files), automatic call
+ *                     recording in the Phone app
+ *   Ledger's line:    microphone, notifications (Android 13+), calls over
+ *                     the lock screen (Android 14+)
+ *   both:             battery; auto-launch — Honor / Huawei / Xiaomi only
+ *                     (their own battery manager; without it Google push
+ *                     can't wake Ledger for a call either)
  *
  * When the person comes back from a system screen with the step done, the
  * next step opens by itself. Auto-launch can't be checked by an app, so the
@@ -53,9 +59,12 @@ class PermissionsActivity : AppCompatActivity() {
     // back with it done moves on by itself.
     private var awaiting = false
 
-    // Whether the call-log prompt was shown this time: after two refusals
-    // Android stops showing it, and only the app's settings page can allow it.
-    private var callLogAsked = false
+    // Permission prompts shown this time: after two refusals Android stops
+    // showing one, and only the app's settings page can allow it.
+    private val asked = mutableSetOf<String>()
+
+    private val collecting by lazy { Session.collectCalls(this) }
+    private val calling by lazy { Session.calling(this) != null }
 
     private val runtimeRequest =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { onReturned() }
@@ -94,7 +103,31 @@ class PermissionsActivity : AppCompatActivity() {
     }
 
     private fun buildSteps(): List<Step> {
-        val list = mutableListOf(
+        val list = mutableListOf<Step>()
+        if (collecting) list += collectSteps()
+        if (calling) list += callingSteps()
+        list += Step(
+            R.drawable.ic_step_battery, R.string.setup_battery_title, R.string.setup_battery_text,
+            R.array.setup_battery_howto, R.string.setup_allow, required = false,
+            isDone = { Permissions.battery(this) },
+            open = { openBattery() },
+        )
+        if (PhoneMaker.needsAutoLaunch) {
+            list.add(
+                Step(
+                    R.drawable.ic_step_launch, R.string.setup_launch_title, R.string.setup_launch_text,
+                    PhoneMaker.autoLaunchHowTo, R.string.setup_open_settings, required = false,
+                    isDone = { PhoneMaker.autoLaunchConfirmed(this) },
+                    open = { PhoneMaker.openAutoLaunch(this) },
+                    confirm = { PhoneMaker.confirmAutoLaunch(this) },
+                )
+            )
+        }
+        return list
+    }
+
+    private fun collectSteps(): List<Step> {
+        return listOf(
             Step(
                 R.drawable.ic_step_calls, R.string.setup_calls_title, R.string.setup_calls_text,
                 R.array.setup_calls_howto, R.string.setup_allow, required = true,
@@ -116,22 +149,32 @@ class PermissionsActivity : AppCompatActivity() {
                 open = { PhoneMaker.openPhoneApp(this) },
                 confirm = { PhoneMaker.confirmRecording(this) },
             ),
+        )
+    }
+
+    private fun callingSteps(): List<Step> {
+        val list = mutableListOf(
             Step(
-                R.drawable.ic_step_battery, R.string.setup_battery_title, R.string.setup_battery_text,
-                R.array.setup_battery_howto, R.string.setup_allow, required = false,
-                isDone = { Permissions.battery(this) },
-                open = { openBattery() },
+                R.drawable.ic_step_mic, R.string.setup_mic_title, R.string.setup_mic_text,
+                R.array.setup_mic_howto, R.string.setup_allow, required = true,
+                isDone = { Permissions.mic(this) },
+                open = { requestRuntime(Manifest.permission.RECORD_AUDIO) },
             ),
         )
-        if (PhoneMaker.needsAutoLaunch) {
-            list.add(
-                Step(
-                    R.drawable.ic_step_launch, R.string.setup_launch_title, R.string.setup_launch_text,
-                    PhoneMaker.autoLaunchHowTo, R.string.setup_open_settings, required = false,
-                    isDone = { PhoneMaker.autoLaunchConfirmed(this) },
-                    open = { PhoneMaker.openAutoLaunch(this) },
-                    confirm = { PhoneMaker.confirmAutoLaunch(this) },
-                )
+        if (Build.VERSION.SDK_INT >= 33 || !Permissions.notifications(this)) {
+            list += Step(
+                R.drawable.ic_step_notify, R.string.setup_notify_title, R.string.setup_notify_text,
+                R.array.setup_notify_howto, R.string.setup_allow, required = true,
+                isDone = { Permissions.notifications(this) },
+                open = { requestNotifications() },
+            )
+        }
+        if (Build.VERSION.SDK_INT >= 34) {
+            list += Step(
+                R.drawable.ic_step_lock, R.string.setup_lock_title, R.string.setup_lock_text,
+                R.array.setup_lock_howto, R.string.setup_open_settings, required = false,
+                isDone = { Permissions.fullScreenCalls(this) },
+                open = { openFullScreenCalls() },
             )
         }
         return list
@@ -161,7 +204,7 @@ class PermissionsActivity : AppCompatActivity() {
             counter.visibility = View.INVISIBLE
             icon.setImageResource(R.drawable.ic_step_done)
             title.setText(R.string.setup_ready_title)
-            text.setText(R.string.setup_ready_text)
+            text.setText(if (collecting) R.string.setup_ready_text else R.string.setup_ready_text_calling)
             howTo.visibility = View.GONE
             doneLabel.visibility = View.GONE
             primary.setText(R.string.setup_open_portal)
@@ -242,12 +285,41 @@ class PermissionsActivity : AppCompatActivity() {
         }
     }
 
-    private fun requestCallLog() {
-        if (callLogAsked && !shouldShowRequestPermissionRationale(Manifest.permission.READ_CALL_LOG)) {
+    private fun requestCallLog() =
+        requestRuntime(Manifest.permission.READ_CALL_LOG, Manifest.permission.READ_PHONE_STATE)
+
+    // The system prompt — or, once Android has stopped showing it, the app's
+    // settings page.
+    private fun requestRuntime(vararg permissions: String) {
+        val first = permissions.first()
+        if (first in asked && !shouldShowRequestPermissionRationale(first)) {
             startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
         } else {
-            callLogAsked = true
-            runtimeRequest.launch(arrayOf(Manifest.permission.READ_CALL_LOG, Manifest.permission.READ_PHONE_STATE))
+            asked += first
+            runtimeRequest.launch(arrayOf(*permissions))
+        }
+    }
+
+    private fun requestNotifications() {
+        val permission = Manifest.permission.POST_NOTIFICATIONS
+        val canAsk = Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED &&
+            (permission !in asked || shouldShowRequestPermissionRationale(permission))
+        if (canAsk) {
+            asked += permission
+            runtimeRequest.launch(arrayOf(permission))
+        } else {
+            // Allowed but switched off, or refused twice: Ledger's notification settings.
+            startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName))
+        }
+    }
+
+    private fun openFullScreenCalls() {
+        if (Build.VERSION.SDK_INT < 34) return
+        try {
+            startActivity(Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:$packageName")))
+        } catch (e: ActivityNotFoundException) {
+            startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName))
         }
     }
 
@@ -273,7 +345,7 @@ class PermissionsActivity : AppCompatActivity() {
     }
 
     private fun finishSetup() {
-        if (Permissions.requiredGranted(this)) {
+        if (collecting && Permissions.requiredGranted(this)) {
             SyncState.ensureInstallFloor(this)
             SyncScheduler.schedule(this)
             SyncScheduler.runNow(this)

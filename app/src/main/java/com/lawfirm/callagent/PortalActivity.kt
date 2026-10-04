@@ -23,6 +23,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.ProgressBar
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.addCallback
 import androidx.activity.result.contract.ActivityResultContracts
@@ -32,6 +33,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import com.lawfirm.callagent.calling.CallingSetup
+import com.lawfirm.callagent.calling.CallActivity
 import com.lawfirm.callagent.calling.LedgerPhone
 import com.lawfirm.callagent.push.PushSetup
 import kotlinx.coroutines.Dispatchers
@@ -52,6 +54,7 @@ import kotlinx.coroutines.withContext
  */
 class PortalActivity : AppCompatActivity() {
     private lateinit var webView: WebView
+    private lateinit var callBar: TextView
     private lateinit var progress: ProgressBar
     private lateinit var offline: View
 
@@ -99,6 +102,8 @@ class PortalActivity : AppCompatActivity() {
         setContentView(R.layout.activity_portal)
 
         webView = findViewById(R.id.webView)
+        callBar = findViewById(R.id.callBar)
+        callBar.setOnClickListener { CallActivity.open(this) }
         progress = findViewById(R.id.pageProgress)
         offline = findViewById(R.id.offlineView)
         findViewById<Button>(R.id.retryButton).setOnClickListener {
@@ -196,6 +201,43 @@ class PortalActivity : AppCompatActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         webView.saveState(outState)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        LedgerPhone.addListener(callListener)
+    }
+
+    override fun onStop() {
+        LedgerPhone.removeListener(callListener)
+        callBarTicker.removeCallbacks(callBarTick)
+        super.onStop()
+    }
+
+    // A call going on: the green bar on top of Ledger, back to the call.
+    private val callListener = LedgerPhone.Listener { renderCallBar(it) }
+    private val callBarTicker = android.os.Handler(android.os.Looper.getMainLooper())
+    private val callBarTick = object : Runnable {
+        override fun run() {
+            renderCallBar(LedgerPhone.currentInfo())
+        }
+    }
+
+    private fun renderCallBar(info: LedgerPhone.CallInfo?) {
+        callBarTicker.removeCallbacks(callBarTick)
+        if (info == null) {
+            callBar.visibility = View.GONE
+            return
+        }
+        val started = info.connectedAtMs
+        callBar.text = if (started == null) {
+            getString(R.string.call_bar_ringing)
+        } else {
+            val seconds = (System.currentTimeMillis() - started) / 1000
+            getString(R.string.call_bar_ongoing, "%d:%02d".format(seconds / 60, seconds % 60))
+        }
+        callBar.visibility = View.VISIBLE
+        callBarTicker.postDelayed(callBarTick, 1000)
     }
 
     override fun onResume() {

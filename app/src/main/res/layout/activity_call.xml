@@ -55,11 +55,60 @@
         android:textColor="#99FFFFFF"
         android:textSize="18sp" />
 
-    <!-- The middle: the keypad while it's open, otherwise empty space. -->
+    <!-- The middle: what Ledger knows about the caller, or the keypad while
+         it's open. -->
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1">
+
+        <ScrollView
+            android:id="@+id/callCardScroll"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:orientation="vertical"
+                android:paddingTop="14dp">
+
+                <TextView
+                    android:id="@+id/callKind"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_call_badge"
+                    android:paddingStart="12dp"
+                    android:paddingTop="4dp"
+                    android:paddingEnd="12dp"
+                    android:paddingBottom="4dp"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/callDetail"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:gravity="center"
+                    android:textColor="#B3FFFFFF"
+                    android:textSize="14sp"
+                    android:visibility="gone" />
+
+                <LinearLayout
+                    android:id="@+id/callCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:background="@drawable/bg_call_card"
+                    android:orientation="vertical"
+                    android:padding="14dp"
+                    android:visibility="gone" />
+            </LinearLayout>
+        </ScrollView>
 
         <LinearLayout
             android:id="@+id/callKeypad"
@@ -114,6 +163,56 @@
             android:text="@string/call_remind"
             android:textColor="#FFFFFF"
             android:textSize="16sp" />
+    </LinearLayout>
+
+    <!-- While it goes on: open the client, add them as one, book a
+         consultation — in Ledger, the call carries on. -->
+    <LinearLayout
+        android:id="@+id/callActions"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="22dp"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:id="@+id/callOpenClient"
+            style="@style/CallAction">
+
+            <ImageView
+                style="@style/CallActionIcon"
+                android:src="@drawable/ic_person" />
+
+            <TextView
+                style="@style/CallActionText"
+                android:text="@string/call_open_client" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/callAddClient"
+            style="@style/CallAction">
+
+            <ImageView
+                style="@style/CallActionIcon"
+                android:src="@drawable/ic_person_add" />
+
+            <TextView
+                style="@style/CallActionText"
+                android:text="@string/call_add_client" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/callBook"
+            style="@style/CallAction">
+
+            <ImageView
+                style="@style/CallActionIcon"
+                android:src="@drawable/ic_event" />
+
+            <TextView
+                style="@style/CallActionText"
+                android:text="@string/call_book" />
+        </LinearLayout>
     </LinearLayout>
 
     <!-- While it goes on: mute, keypad, speaker. -->

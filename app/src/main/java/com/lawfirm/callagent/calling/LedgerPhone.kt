@@ -166,6 +166,7 @@ object LedgerPhone {
         val params = c.createCallParams(null) ?: return false
         params.mediaEncryption = MediaEncryption.SRTP
         c.inviteAddressWithParams(address, params) ?: return false
+        CallerInfo.prefetch(context, dialable(number))
         DiagnosticLog.append(context, "phone line: calling out")
         CallService.update(context)
         CallActivity.open(context)
@@ -238,6 +239,7 @@ object LedgerPhone {
                 Call.State.IncomingReceived -> {
                     cancelIdleStop()
                     connectedAtMs = null
+                    call.remoteAddress.username?.let { CallerInfo.prefetch(ctx, it) }
                     DiagnosticLog.append(ctx, "phone line: incoming call")
                     // Ledger on screen: straight to the call screen. Otherwise
                     // the ringing notification (full screen when locked).

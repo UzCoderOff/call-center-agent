@@ -4,7 +4,10 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.Typeface
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -15,6 +18,7 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.GridLayout
 import android.widget.ImageButton
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -23,6 +27,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import com.lawfirm.callagent.Api
+import com.lawfirm.callagent.PortalActivity
 import com.lawfirm.callagent.R
 import com.lawfirm.callagent.SecureStore
 import org.linphone.core.Call
@@ -30,9 +35,13 @@ import java.util.Calendar
 
 /**
  * The call screen, shown over the lock screen and dark like a phone's own
- * dialer: who is calling (initials, name, number); Answer / Decline and
- * "Remind me" (call back later) while it rings; mute, keypad, loudspeaker,
- * hang up and the time while it goes on. Closes itself when the call ends.
+ * dialer: who is calling (initials, name, number) and what Ledger knows
+ * about them — a client's cases, how far along, who handles them, the next
+ * step; a colleague; a new number (CallerInfo). Answer / Decline and
+ * "Remind me" while it rings; mute, keypad, loudspeaker, hang up and the
+ * time while it goes on — and open the client, add them as a client or book
+ * a consultation in Ledger while the call carries on. Closes itself when
+ * the call ends.
  */
 class CallActivity : AppCompatActivity() {
     private lateinit var status: TextView
@@ -49,6 +58,16 @@ class CallActivity : AppCompatActivity() {
     private lateinit var end: ImageButton
     private lateinit var endLabel: TextView
     private lateinit var answerBox: View
+    private lateinit var kind: TextView
+    private lateinit var detail: TextView
+    private lateinit var card: LinearLayout
+    private lateinit var cardScroll: View
+    private lateinit var actions: View
+    private lateinit var openClient: View
+    private lateinit var addClient: View
+    private lateinit var book: View
+    private var caller: Api.CallerCard? = null
+    private var callerFor: String? = null
     private val ticker = Handler(Looper.getMainLooper())
     private var proximity: PowerManager.WakeLock? = null
     private var info: LedgerPhone.CallInfo? = null
@@ -97,6 +116,17 @@ class CallActivity : AppCompatActivity() {
         end = findViewById(R.id.callEnd)
         endLabel = findViewById(R.id.callEndLabel)
         answerBox = findViewById(R.id.callAnswerBox)
+        kind = findViewById(R.id.callKind)
+        detail = findViewById(R.id.callDetail)
+        card = findViewById(R.id.callCard)
+        cardScroll = findViewById(R.id.callCardScroll)
+        actions = findViewById(R.id.callActions)
+        openClient = findViewById(R.id.callOpenClient)
+        addClient = findViewById(R.id.callAddClient)
+        book = findViewById(R.id.callBook)
+        openClient.setOnClickListener { caller?.clientId?.let { openInLedger("/clients/$it") } }
+        addClient.setOnClickListener { info?.let { openInLedger("/clients?new=1&phone=${Uri.encode(it.number)}") } }
+        book.setOnClickListener { bookConsultation() }
 
         findViewById<View>(R.id.callAnswer).setOnClickListener { answerCall() }
         end.setOnClickListener {
@@ -155,11 +185,15 @@ class CallActivity : AppCompatActivity() {
         info.incoming && (info.state == Call.State.IncomingReceived || info.state == Call.State.IncomingEarlyMedia)
 
     private fun render(info: LedgerPhone.CallInfo) {
-        val shownName = info.name ?: info.number.ifBlank { getString(R.string.call_unknown) }
+        loadCaller(info.number)
+        // Ledger's name for them (a client, a colleague) over what the line sent.
+        val known = caller?.name?.takeIf { caller?.kind == "client" || caller?.kind == "colleague" }
+        val shownName = known ?: info.name ?: info.number.ifBlank { getString(R.string.call_unknown) }
         name.text = shownName
-        number.text = if (info.name != null) info.number else ""
-        initials.text = initialsOf(info.name) ?: "#"
+        number.text = if (known != null || info.name != null) info.number else ""
+        initials.text = initialsOf(known ?: info.name) ?: "#"
         val isRinging = ringing(info)
+        renderActions(isRinging)
         answerBox.visibility = if (isRinging) View.VISIBLE else View.GONE
         remind.visibility = if (isRinging && info.number.isNotBlank()) View.VISIBLE else View.GONE
         options.visibility = if (isRinging) View.INVISIBLE else View.VISIBLE
@@ -223,8 +257,104 @@ class CallActivity : AppCompatActivity() {
 
     private fun showKeypad(show: Boolean) {
         keypad.visibility = if (show) View.VISIBLE else View.GONE
+        cardScroll.visibility = if (show) View.GONE else View.VISIBLE
         keypadToggle.isActivated = show
         if (show) releaseProximity()
+    }
+
+    // ------------------------------------------------ who's on the line
+
+    private fun loadCaller(number: String) {
+        if (number.isBlank() || callerFor == number) return
+        callerFor = number
+        CallerInfo.get(this, number) { found ->
+            if (isDestroyed || callerFor != number) return@get
+            caller = found
+            showCaller(found)
+            info?.let { render(it) }
+        }
+    }
+
+    private fun showCaller(c: Api.CallerCard) {
+        val (label, color, dark) = when (c.kind) {
+            "client" -> Triple(R.string.call_kind_client, "#34C759", false)
+            "colleague" -> Triple(R.string.call_kind_colleague, "#0A84FF", false)
+            "restricted" -> Triple(R.string.call_kind_restricted, "#FF9F0A", false)
+            else -> Triple(R.string.call_kind_unknown, "#FFFFFF", true)
+        }
+        kind.setText(label)
+        kind.backgroundTintList = ColorStateList.valueOf(Color.parseColor(color))
+        kind.setTextColor(if (dark) Color.parseColor("#1D1D1F") else Color.WHITE)
+        kind.visibility = View.VISIBLE
+
+        val line = when (c.kind) {
+            "client" -> c.via?.let { getString(R.string.call_via, it) }
+            else -> c.detail
+        }
+        detail.text = line ?: ""
+        detail.visibility = if (line != null) View.VISIBLE else View.GONE
+
+        card.removeAllViews()
+        c.cases.forEachIndexed { i, k ->
+            if (i > 0) card.addView(divider())
+            card.addView(text(k.title ?: k.status, 16f, "#FFFFFF", bold = true))
+            listOfNotNull(k.status.takeIf { k.title != null }, k.stage).joinToString(" · ").takeIf { it.isNotBlank() }?.let {
+                card.addView(text(it, 14f, "#CCFFFFFF", top = 2))
+            }
+            k.people?.let { card.addView(text(it, 13f, "#99FFFFFF", top = 4)) }
+        }
+        if (c.nextStep != null) {
+            if (c.cases.isNotEmpty()) card.addView(divider())
+            card.addView(text(getString(R.string.call_next_step).uppercase(), 11f, "#99FFFFFF", bold = true))
+            val whenText = CallerInfo.whenText(c.nextStepAt)
+            card.addView(text(listOfNotNull(c.nextStep, whenText).joinToString(" · "), 15f, "#FFFFFF", top = 2))
+        }
+        card.visibility = if (card.childCount > 0) View.VISIBLE else View.GONE
+    }
+
+    private fun renderActions(isRinging: Boolean) {
+        val c = caller
+        val ended = info == null
+        openClient.visibility = if (c?.clientId != null) View.VISIBLE else View.GONE
+        addClient.visibility = if (c != null && c.kind == "unknown" && c.canAddClient) View.VISIBLE else View.GONE
+        book.visibility = if (c != null && c.canBook && (c.kind == "client" || c.kind == "unknown")) View.VISIBLE else View.GONE
+        val any = openClient.visibility == View.VISIBLE || addClient.visibility == View.VISIBLE || book.visibility == View.VISIBLE
+        // While it rings: just answer or not.
+        actions.visibility = if (any && !isRinging && !ended) View.VISIBLE else View.GONE
+    }
+
+    private fun text(value: String, size: Float, color: String, bold: Boolean = false, top: Int = 0) =
+        TextView(this).apply {
+            text = value
+            textSize = size
+            setTextColor(Color.parseColor(color))
+            if (bold) setTypeface(typeface, Typeface.BOLD)
+            if (top > 0) setPadding(0, (top * resources.displayMetrics.density).toInt(), 0, 0)
+        }
+
+    private fun divider() = View(this).apply {
+        setBackgroundColor(Color.parseColor("#26FFFFFF"))
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1).apply {
+            val gap = (12 * resources.displayMetrics.density).toInt()
+            setMargins(0, gap, 0, gap)
+        }
+    }
+
+    // A page of Ledger over the call (the call carries on; a green bar on
+    // top of Ledger brings it back).
+    private fun openInLedger(path: String) {
+        startActivity(PortalActivity.openIntent(this, path))
+    }
+
+    private fun bookConsultation() {
+        val current = info ?: return
+        val c = caller
+        val query = buildList {
+            c?.clientId?.let { add("clientId=$it") }
+            c?.name?.takeIf { c.kind == "client" }?.let { add("name=${Uri.encode(it)}") }
+            if (current.number.isNotBlank()) add("phone=${Uri.encode(current.number)}")
+        }.joinToString("&")
+        openInLedger("/calendar?$query")
     }
 
     // "Remind me": decline now, and Ledger reminds this person to call back.

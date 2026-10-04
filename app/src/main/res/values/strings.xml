@@ -159,6 +159,17 @@
     <string name="remind_cancel">Bekor qilish</string>
     <string name="remind_saved">Eslatma qoʻyildi — vaqti kelganda Ledger eslatadi</string>
     <string name="remind_failed">Eslatma qoʻyilmadi: internetni tekshiring</string>
+    <string name="call_kind_client">Mijoz</string>
+    <string name="call_kind_unknown">Yangi raqam — Ledgerda yoʻq</string>
+    <string name="call_kind_colleague">Hamkasb</string>
+    <string name="call_kind_restricted">Boshqa xodimning mijozi</string>
+    <string name="call_via">Raqam: %1$s</string>
+    <string name="call_next_step">Keyingi qadam</string>
+    <string name="call_open_client">Mijoz</string>
+    <string name="call_add_client">Mijoz qoʻshish</string>
+    <string name="call_book">Konsultatsiya</string>
+    <string name="call_bar_ringing">Qoʻngʻiroq — ochish uchun bosing</string>
+    <string name="call_bar_ongoing">Qoʻngʻiroq davom etmoqda · %1$s — qaytish</string>
     <string name="notice_channel_reminders">Eslatmalar</string>
     <string name="notice_channel_chat">Chat</string>
     <string name="notice_channel_updates">Ledger xabarlari</string>

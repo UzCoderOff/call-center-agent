@@ -2,6 +2,7 @@ package com.lawfirm.callagent
 
 import android.os.Build
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -148,6 +149,53 @@ object Api {
                 link = text("link"),
                 phone = text("phone"),
                 tag = text("tag"),
+            )
+        }
+    }
+
+    /** What the call screen shows about the other side (backend: services/pbx/callerCard.js). */
+    data class CallerCard(
+        val kind: String, // "client" | "colleague" | "restricted" | "unknown"
+        val name: String?,
+        val detail: String?,
+        val via: String?,
+        val clientId: Long?,
+        val cases: List<CaseLine>,
+        val nextStep: String?,
+        val nextStepAt: String?,
+        val canBook: Boolean,
+        val canAddClient: Boolean,
+    )
+
+    data class CaseLine(val title: String?, val status: String, val stage: String?, val people: String?)
+
+    fun caller(token: String, number: String): CallerCard {
+        val url = url("/api/device/caller").toHttpUrl().newBuilder().addQueryParameter("number", number).build()
+        val request = Request.Builder()
+            .url(url)
+            .header("Authorization", "Bearer $token")
+            .header("X-App-Version", BuildConfig.VERSION_NAME)
+            .get()
+            .build()
+        client.newCall(request).execute().use { res ->
+            val json = parse(res)
+            fun text(o: JSONObject, key: String) = o.optString(key).takeIf { !o.isNull(key) && it.isNotBlank() }
+            val cases = json.optJSONArray("cases")
+            val step = json.optJSONObject("nextStep")
+            return CallerCard(
+                kind = json.optString("kind", "unknown"),
+                name = text(json, "name"),
+                detail = text(json, "detail"),
+                via = text(json, "via"),
+                clientId = if (json.isNull("clientId")) null else json.optLong("clientId").takeIf { it > 0 },
+                cases = (0 until (cases?.length() ?: 0)).map { i ->
+                    val c = cases!!.getJSONObject(i)
+                    CaseLine(text(c, "title"), c.optString("status"), text(c, "stage"), text(c, "people"))
+                },
+                nextStep = step?.let { listOfNotNull(text(it, "what"), text(it, "note")).joinToString(" — ") },
+                nextStepAt = step?.let { text(it, "dueAt") },
+                canBook = json.optBoolean("canBook", false),
+                canAddClient = json.optBoolean("canAddClient", false),
             )
         }
     }

@@ -3,10 +3,22 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 
+// Google push needs app/google-services.json (the Firebase project's settings).
+// It isn't in git (the repo is public): CI writes it from the
+// GOOGLE_SERVICES_JSON_B64 secret. Without it the app builds, just without
+// push — calls then ring only while Ledger is open.
+if (file("google-services.json").exists()) {
+    apply plugin: 'com.google.gms.google-services'
+}
+
 // Where the app points. Set in gradle.properties — change them there (e.g.
 // once the firm has its own domain) and rebuild; nothing is typed on phones.
 def portalUrl = project.findProperty("ledger.portalUrl") ?: "https://call-center-frontend-hazel.vercel.app"
 def apiUrl = project.findProperty("ledger.apiUrl") ?: "https://82.115.51.61.nip.io"
+// Testing on the PC's Android emulator (-Pledger.emulator=true): adds the
+// emulator's processor type. A debug build may also reach the PC's own test
+// servers over plain http (10.0.2.2 only: src/debug).
+def forEmulator = project.findProperty("ledger.emulator") == "true"
 
 // Release signing. Every release must be signed with the SAME key, or
 // Android refuses to install an update over the previous version. The key
@@ -22,8 +34,15 @@ android {
         applicationId "com.lawfirm.callagent"
         minSdk 26
         targetSdk 34
-        versionCode 5
-        versionName "2.3.0"
+        versionCode 6
+        versionName "3.0.0"
+
+        // The calling engine's native code: 64- and 32-bit ARM phones only
+        // (plus the PC's emulator for a test build), to keep the app small.
+        ndk {
+            abiFilters 'arm64-v8a', 'armeabi-v7a'
+            if (forEmulator) abiFilters 'x86_64'
+        }
 
         buildConfigField "String", "PORTAL_URL", "\"${portalUrl}\""
         buildConfigField "String", "API_URL", "\"${apiUrl}\""
@@ -61,6 +80,13 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
+    packaging {
+        // Keep native libraries compressed in the APK (smaller download).
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
 }
 
 dependencies {
@@ -71,4 +97,9 @@ dependencies {
     implementation 'androidx.work:work-runtime-ktx:2.9.1'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1'
+    // Calling through Ledger's phone line (SIP over TLS, encrypted audio).
+    implementation 'org.linphone:linphone-sdk-android:5.4.126'
+    // Google push: wakes the app for a call when it's closed.
+    implementation platform('com.google.firebase:firebase-bom:33.7.0')
+    implementation 'com.google.firebase:firebase-messaging'
 }

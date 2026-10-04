@@ -20,6 +20,23 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
+    <!-- Calls through Ledger's phone line (app 3.0): the microphone and
+         notifications are asked for only from people with calling on.
+         The rest is granted with the app: keeping a call running in the
+         background, showing it over the lock screen, the loudspeaker and
+         Bluetooth headsets. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+
     <application
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
@@ -53,6 +70,35 @@
             android:exported="false"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
             android:windowSoftInputMode="adjustResize" />
+
+        <!-- A call: over the lock screen, one at a time. -->
+        <activity
+            android:name=".calling.CallActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:screenOrientation="portrait"
+            android:taskAffinity="com.lawfirm.callagent.call" />
+
+        <service
+            android:name=".calling.CallService"
+            android:exported="false"
+            android:foregroundServiceType="phoneCall|microphone" />
+
+        <receiver
+            android:name=".calling.CallActionReceiver"
+            android:exported="false" />
+
+        <!-- Google push: wakes Ledger for a call coming in. -->
+        <service
+            android:name=".calling.LedgerMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
 
         <receiver
             android:name=".BootReceiver"

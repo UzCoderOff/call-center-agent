@@ -6,6 +6,8 @@ buildscript {
     dependencies {
         classpath 'com.android.tools.build:gradle:8.5.2'
         classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.24'
+        // Google push (Firebase): reads app/google-services.json.
+        classpath 'com.google.gms:google-services:4.4.2'
     }
 }
 
@@ -13,5 +15,7 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        // The calling engine (Linphone SDK, org.linphone:linphone-sdk-android).
+        maven { url "https://download.linphone.org/maven_repository" }
     }
 }

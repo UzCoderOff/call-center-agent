@@ -10,3 +10,6 @@ local.properties
 *.jks
 *.keystore
 *.apk
+
+# Firebase config: given to the build by the GOOGLE_SERVICES_JSON_B64 secret (the repo is public).
+app/google-services.json

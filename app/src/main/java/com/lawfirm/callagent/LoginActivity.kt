@@ -48,6 +48,9 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun submit() {
+        // Already signing in: the keyboard's Enter can fire twice (down and
+        // up), which would sign this phone in twice.
+        if (!button.isEnabled) return
         val user = username.text.toString().trim()
         val pass = password.text.toString()
         if (user.isEmpty() || pass.isEmpty()) {

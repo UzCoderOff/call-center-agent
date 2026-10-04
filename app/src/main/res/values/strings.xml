@@ -110,4 +110,20 @@
     <string name="download_started">Yuklab olinmoqda: %1$s</string>
     <string name="download_failed">Faylni yuklab boʻlmadi. Internetni tekshirib, qayta urinib koʻring.</string>
     <string name="download_no_app">Bu faylni ochadigan ilova topilmadi. U telefoningizdagi «Yuklanmalar» («Загрузки») papkasida.</string>
+
+    <!-- Calls through Ledger's phone line -->
+    <string name="call_channel_incoming">Kiruvchi qoʻngʻiroqlar</string>
+    <string name="call_channel_ongoing">Davom etayotgan qoʻngʻiroq</string>
+    <string name="call_incoming">Kiruvchi qoʻngʻiroq</string>
+    <string name="call_connecting">Ulanmoqda…</string>
+    <string name="call_unknown">Raqam yashirilgan</string>
+    <string name="call_answer">Javob</string>
+    <string name="call_decline">Rad etish</string>
+    <string name="call_end">Tugatish</string>
+    <string name="call_mute">Ovozsiz</string>
+    <string name="call_speaker">Karnay</string>
+    <string name="call_no_outside_line">Firma raqami hali ulanmagan — qoʻngʻiroq oddiy telefon orqali.</string>
+    <string name="call_fullscreen_title">Qoʻngʻiroqlar qulflangan ekranda</string>
+    <string name="call_fullscreen_text">Telefon qulflangan boʻlsa ham kiruvchi qoʻngʻiroq butun ekranda chiqishi uchun keyingi oynada Ledger uchun ruxsatni yoqing.</string>
+    <string name="call_fullscreen_open">Ochish</string>
 </resources>

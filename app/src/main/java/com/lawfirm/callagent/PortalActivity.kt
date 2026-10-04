@@ -29,7 +29,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import com.lawfirm.callagent.calling.CallingSetup
+import com.lawfirm.callagent.calling.LedgerPhone
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -76,6 +79,11 @@ class PortalActivity : AppCompatActivity() {
         // null on cancel too — the page's file input must always get an answer.
         callback.onReceiveValue(uris)
     }
+
+    // Calling needs the microphone and (Android 13+) notifications: asked
+    // once calling is on for this person.
+    private var callingAsked = false
+    private val askCallingPermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { checkFullScreenCalls() }
 
     // Downloads started from the portal; each opens by itself when done.
     private val pendingDownloads = mutableSetOf<Long>()
@@ -171,6 +179,8 @@ class PortalActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         webView.onResume()
+        // On screen: signed in to the line, so calls ring at once.
+        LedgerPhone.setForeground(this, true)
         // Pick up changes made in the portal while the app sat in the
         // background (collection switched on/off, phone signed out) without
         // needing a restart.
@@ -183,6 +193,7 @@ class PortalActivity : AppCompatActivity() {
 
     override fun onPause() {
         webView.onPause()
+        LedgerPhone.setForeground(this, false)
         super.onPause()
     }
 
@@ -271,6 +282,13 @@ class PortalActivity : AppCompatActivity() {
 
         val wasCollecting = Session.collectCalls(this)
         Session.saveConfig(this, config)
+        withContext(Dispatchers.IO) { CallingSetup.sync(this@PortalActivity, token, config.calling) }
+        // Calling just switched on (or signed in again): on the line now —
+        // if Ledger is still on screen (the answer can come after it left).
+        if (config.calling != null && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+            LedgerPhone.setForeground(this, true)
+            askForCalling()
+        }
         if (config.collectCalls) {
             SyncState.ensureInstallFloor(this)
             if (Permissions.requiredGranted(this)) {
@@ -347,13 +365,10 @@ class PortalActivity : AppCompatActivity() {
         override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
             val uri = request.url
             return when {
-                // "Call back" buttons in the portal: straight into the dialer.
+                // "Call" buttons in the portal: through Ledger's line when it's
+                // on for this person, otherwise the phone's own dialer.
                 uri.scheme == "tel" -> {
-                    try {
-                        startActivity(Intent(Intent.ACTION_DIAL, uri))
-                    } catch (e: ActivityNotFoundException) {
-                        // No dialer (tablet) — nothing to do.
-                    }
+                    placeCall(uri.schemeSpecificPart ?: "")
                     true
                 }
                 uri.host == portalHost -> false
@@ -421,6 +436,68 @@ class PortalActivity : AppCompatActivity() {
         fun sessionExpired() {
             runOnUiThread { renewSession() }
         }
+
+        /** Calls go through Ledger's phone line on this phone (app 3.0+). */
+        @JavascriptInterface
+        fun canCall(): Boolean = LedgerPhone.isReady(this@PortalActivity)
+
+        /** Calls a number or a colleague's phone ID (through the line when it can). */
+        @JavascriptInterface
+        fun call(number: String) {
+            runOnUiThread { placeCall(number) }
+        }
+    }
+
+    /**
+     * A call from the portal. Through Ledger's line (recorded, the company
+     * number shown) when it's on for this person; emergency numbers, and
+     * clients while the outside line isn't connected yet, go to the phone's
+     * own dialer.
+     */
+    private fun placeCall(raw: String) {
+        val number = raw.filter { it.isDigit() || it == '+' }
+        val calling = Session.calling(this)
+        val emergency = number in EMERGENCY
+        val colleague = number.length == 3 && number.first() in '2'..'8'
+        val viaLine = calling != null && !emergency && (colleague || (calling.canCallOut && calling.outboundReady))
+        if (viaLine && LedgerPhone.call(this, number)) return
+        if (calling != null && !emergency && !colleague && !calling.outboundReady) {
+            Toast.makeText(this, R.string.call_no_outside_line, Toast.LENGTH_LONG).show()
+        }
+        try {
+            startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number")))
+        } catch (e: ActivityNotFoundException) {
+            // No dialer (tablet) — nothing to do.
+        }
+    }
+
+    // Calling is on: the microphone and notifications, once.
+    private fun askForCalling() {
+        if (callingAsked) return
+        callingAsked = true
+        val wanted = mutableListOf(android.Manifest.permission.RECORD_AUDIO)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) wanted += android.Manifest.permission.POST_NOTIFICATIONS
+        val missing = wanted.filter { ContextCompat.checkSelfPermission(this, it) != android.content.pm.PackageManager.PERMISSION_GRANTED }
+        if (missing.isEmpty()) checkFullScreenCalls() else askCallingPermissions.launch(missing.toTypedArray())
+    }
+
+    // Android 14: showing a call over the lock screen is a setting of its own.
+    private fun checkFullScreenCalls() {
+        if (Build.VERSION.SDK_INT < 34) return
+        val manager = getSystemService(android.app.NotificationManager::class.java)
+        if (manager.canUseFullScreenIntent()) return
+        AlertDialog.Builder(this)
+            .setTitle(R.string.call_fullscreen_title)
+            .setMessage(R.string.call_fullscreen_text)
+            .setPositiveButton(R.string.call_fullscreen_open) { _, _ ->
+                try {
+                    startActivity(Intent(android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:$packageName")))
+                } catch (e: ActivityNotFoundException) {
+                    // Older settings app: nothing to open.
+                }
+            }
+            .setNegativeButton(R.string.update_later, null)
+            .show()
     }
 
     companion object {
@@ -428,5 +505,7 @@ class PortalActivity : AppCompatActivity() {
         private const val RENEW_COOLDOWN_MS = 30 * 1000L
         private val FILENAME_UTF8 = Regex("""filename\*=UTF-8''([^;]+)""", RegexOption.IGNORE_CASE)
         private val UNSAFE_FILENAME_CHARS = Regex("""[\\/:*?"<>|]""")
+        // Uzbekistan's emergency numbers: always the phone's own dialer.
+        private val EMERGENCY = setOf("101", "102", "103", "104", "112")
     }
 }

@@ -36,7 +36,27 @@ object Api {
         val latestVersionCode: Int,
         val latestVersionName: String?,
         val downloadUrl: String?,
+        /** Calling through Ledger's phone line; null when it's off for them. */
+        val calling: Calling?,
     )
+
+    /**
+     * Their place on Ledger's phone line (backend: routes/device.js callingFor):
+     * their phone ID, where to connect (TLS), whether calls can go outside
+     * yet, and whether this phone holds the current sign-in.
+     */
+    data class Calling(
+        val ext: String,
+        val host: String,
+        val port: Int,
+        val realm: String,
+        val canCallOut: Boolean,
+        val outboundReady: Boolean,
+        val signedIn: Boolean,
+    )
+
+    /** This phone's sign-in to the line: the secret is shown once. */
+    data class SipSignIn(val calling: Calling, val secret: String)
 
     fun deviceLabel(): String = "${Build.MANUFACTURER} ${Build.MODEL}".trim()
 
@@ -82,8 +102,39 @@ object Api {
                 latestVersionCode = latest?.optInt("versionCode", 0) ?: 0,
                 latestVersionName = latest?.optString("versionName")?.takeIf { it.isNotBlank() && it != "null" },
                 downloadUrl = latest?.optString("downloadUrl")?.takeIf { it.isNotBlank() && it != "null" },
+                calling = json.optJSONObject("calling")?.let(::calling),
             )
         }
+    }
+
+    /** A new sign-in to the phone line for this phone (the previous one stops working). */
+    fun sipSignIn(token: String): SipSignIn {
+        val request = authed(token, "/api/device/sip").post("{}".toRequestBody(JSON)).build()
+        client.newCall(request).execute().use { res ->
+            val json = parse(res)
+            val calling = calling(json) ?: throw IOException("no phone ID")
+            return SipSignIn(calling, json.getString("secret"))
+        }
+    }
+
+    /** This phone's Google push address, so a call can wake it. */
+    fun sendPushToken(token: String, pushToken: String) {
+        val body = JSONObject().put("token", pushToken)
+        val request = authed(token, "/api/device/push").post(body.toString().toRequestBody(JSON)).build()
+        client.newCall(request).execute().use { parse(it) }
+    }
+
+    private fun calling(json: JSONObject): Calling? {
+        val ext = json.optString("ext").takeIf { it.isNotBlank() && it != "null" } ?: return null
+        return Calling(
+            ext = ext,
+            host = json.optString("host"),
+            port = json.optInt("port", 5161),
+            realm = json.optString("realm", "ledger"),
+            canCallOut = json.optBoolean("canCallOut", false),
+            outboundReady = json.optBoolean("outboundReady", false),
+            signedIn = json.optBoolean("signedIn", false),
+        )
     }
 
     /** Revokes this phone's token on the server. */

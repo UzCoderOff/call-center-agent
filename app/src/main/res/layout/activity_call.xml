@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A call through Ledger's phone line: who, its state or time, and the
+     buttons — answer/decline while ringing; mute, speaker, hang up after. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:id="@+id/callStatus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="72dp"
+        android:textColor="@color/text2"
+        android:textSize="16sp" />
+
+    <TextView
+        android:id="@+id/callName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="center"
+        android:textColor="@color/text"
+        android:textSize="30sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/callNumber"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:textColor="@color/text2"
+        android:textSize="18sp" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <!-- During a call -->
+    <LinearLayout
+        android:id="@+id/callOptions"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="40dp"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/callMute"
+            android:layout_width="76dp"
+            android:layout_height="76dp"
+            android:layout_marginEnd="48dp"
+            android:background="@drawable/bg_call_option"
+            android:text="@string/call_mute"
+            android:textAllCaps="false"
+            android:textColor="@color/text"
+            android:textSize="12sp" />
+
+        <Button
+            android:id="@+id/callSpeaker"
+            android:layout_width="76dp"
+            android:layout_height="76dp"
+            android:background="@drawable/bg_call_option"
+            android:text="@string/call_speaker"
+            android:textAllCaps="false"
+            android:textColor="@color/text"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="48dp"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/callEnd"
+            android:layout_width="84dp"
+            android:layout_height="84dp"
+            android:background="@drawable/bg_call_end"
+            android:text="@string/call_end"
+            android:textAllCaps="false"
+            android:textColor="@color/onAccent"
+            android:textSize="13sp" />
+
+        <Button
+            android:id="@+id/callAnswer"
+            android:layout_width="84dp"
+            android:layout_height="84dp"
+            android:layout_marginStart="96dp"
+            android:background="@drawable/bg_call_answer"
+            android:text="@string/call_answer"
+            android:textAllCaps="false"
+            android:textColor="@color/onAccent"
+            android:textSize="13sp" />
+    </LinearLayout>
+</LinearLayout>

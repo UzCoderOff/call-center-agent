@@ -24,6 +24,38 @@ object Session {
             .putString(NAME, config.displayName)
             .putBoolean(COLLECT_CALLS, config.collectCalls)
             .apply()
+        saveCalling(context, config.calling)
+    }
+
+    // Calling through Ledger's phone line, as last seen (null: off for them).
+    private const val CALLING = "calling"
+
+    fun saveCalling(context: Context, calling: Api.Calling?) {
+        val value = calling?.let {
+            org.json.JSONObject()
+                .put("ext", it.ext).put("host", it.host).put("port", it.port).put("realm", it.realm)
+                .put("canCallOut", it.canCallOut).put("outboundReady", it.outboundReady)
+                .toString()
+        }
+        prefs(context).edit().putString(CALLING, value).apply()
+    }
+
+    fun calling(context: Context): Api.Calling? {
+        val text = prefs(context).getString(CALLING, null) ?: return null
+        return try {
+            val j = org.json.JSONObject(text)
+            Api.Calling(
+                ext = j.getString("ext"),
+                host = j.getString("host"),
+                port = j.getInt("port"),
+                realm = j.getString("realm"),
+                canCallOut = j.getBoolean("canCallOut"),
+                outboundReady = j.getBoolean("outboundReady"),
+                signedIn = true,
+            )
+        } catch (e: Exception) {
+            null
+        }
     }
 
     fun displayName(context: Context): String? = prefs(context).getString(NAME, null)

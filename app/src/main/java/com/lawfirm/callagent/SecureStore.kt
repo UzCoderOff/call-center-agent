@@ -75,6 +75,35 @@ object SecureStore {
     }
 
     fun clear(context: Context) {
-        prefs(context).edit().remove(TOKEN).apply()
+        prefs(context).edit().remove(TOKEN).remove(SIP_SECRET).apply()
+    }
+
+    // This phone's sign-in to Ledger's phone line (Api.sipSignIn), encrypted
+    // the same way. Gone with sign-out.
+    private const val SIP_SECRET = "sip_secret"
+
+    fun saveSipSecret(context: Context, secret: String) {
+        val cipher = Cipher.getInstance(TRANSFORMATION)
+        cipher.init(Cipher.ENCRYPT_MODE, key())
+        val encrypted = cipher.doFinal(secret.toByteArray(Charsets.UTF_8))
+        val blob = Base64.encodeToString(cipher.iv, Base64.NO_WRAP) + ":" + Base64.encodeToString(encrypted, Base64.NO_WRAP)
+        prefs(context).edit().putString(SIP_SECRET, blob).apply()
+    }
+
+    fun sipSecret(context: Context): String? {
+        val blob = prefs(context).getString(SIP_SECRET, null) ?: return null
+        return try {
+            val parts = blob.split(":", limit = 2)
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+            cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, Base64.decode(parts[0], Base64.NO_WRAP)))
+            String(cipher.doFinal(Base64.decode(parts[1], Base64.NO_WRAP)), Charsets.UTF_8)
+        } catch (e: Exception) {
+            clearSipSecret(context) // asked for again
+            null
+        }
+    }
+
+    fun clearSipSecret(context: Context) {
+        prefs(context).edit().remove(SIP_SECRET).apply()
     }
 }

@@ -4,6 +4,8 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.webkit.CookieManager
+import com.lawfirm.callagent.calling.CallingSetup
+import com.lawfirm.callagent.calling.LedgerPhone
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -42,6 +44,8 @@ object AppFlow {
             val config = Api.config(token)
             withContext(Dispatchers.Main) { applyCookies(cookies) }
             Session.saveConfig(context, config)
+            // Calling through Ledger's line: this phone's sign-in and push address.
+            CallingSetup.sync(context, token, config.calling)
             Refresh.Ok(config)
         } catch (e: Api.HttpError) {
             if (e.status == 401) Refresh.SignedOut else Refresh.Offline
@@ -96,6 +100,7 @@ object AppFlow {
             }.start()
         }
         DiagnosticLog.append(activity, "signed out (revokeOnServer=$revokeOnServer)")
+        LedgerPhone.stop()
         SecureStore.clear(activity)
         Session.clear(activity)
         SyncScheduler.cancel(activity)

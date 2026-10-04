@@ -58,6 +58,7 @@ class CallActivity : AppCompatActivity() {
     private lateinit var end: ImageButton
     private lateinit var endLabel: TextView
     private lateinit var answerBox: View
+    private lateinit var avatar: View
     private lateinit var kind: TextView
     private lateinit var detail: TextView
     private lateinit var card: LinearLayout
@@ -116,6 +117,7 @@ class CallActivity : AppCompatActivity() {
         end = findViewById(R.id.callEnd)
         endLabel = findViewById(R.id.callEndLabel)
         answerBox = findViewById(R.id.callAnswerBox)
+        avatar = findViewById(R.id.callAvatar)
         kind = findViewById(R.id.callKind)
         detail = findViewById(R.id.callDetail)
         card = findViewById(R.id.callCard)
@@ -187,7 +189,7 @@ class CallActivity : AppCompatActivity() {
     private fun render(info: LedgerPhone.CallInfo) {
         loadCaller(info.number)
         // Ledger's name for them (a client, a colleague) over what the line sent.
-        val known = caller?.name?.takeIf { caller?.kind == "client" || caller?.kind == "colleague" }
+        val known = caller?.name?.takeIf { caller?.kind in setOf("client", "colleague", "service") }
         val shownName = known ?: info.name ?: info.number.ifBlank { getString(R.string.call_unknown) }
         name.text = shownName
         number.text = if (known != null || info.name != null) info.number else ""
@@ -231,8 +233,8 @@ class CallActivity : AppCompatActivity() {
 
     // The keypad, for menus that say "press 1" — each key a tone to the other side.
     private fun buildKeys(grid: GridLayout) {
-        val size = (72 * resources.displayMetrics.density).toInt()
-        val gap = (10 * resources.displayMetrics.density).toInt()
+        val size = (66 * resources.displayMetrics.density).toInt()
+        val gap = (8 * resources.displayMetrics.density).toInt()
         for (key in "123456789*0#") {
             val button = TextView(this).apply {
                 text = key.toString()
@@ -257,6 +259,9 @@ class CallActivity : AppCompatActivity() {
 
     private fun showKeypad(show: Boolean) {
         keypad.visibility = if (show) View.VISIBLE else View.GONE
+        // The keypad takes the picture's and the card's room, so all four
+        // rows fit on any phone.
+        avatar.visibility = if (show) View.GONE else View.VISIBLE
         cardScroll.visibility = if (show) View.GONE else View.VISIBLE
         keypadToggle.isActivated = show
         if (show) releaseProximity()
@@ -276,6 +281,13 @@ class CallActivity : AppCompatActivity() {
     }
 
     private fun showCaller(c: Api.CallerCard) {
+        // The line's own numbers (600, 601…): just their name, no badge.
+        if (c.kind == "service") {
+            kind.visibility = View.GONE
+            detail.visibility = View.GONE
+            card.visibility = View.GONE
+            return
+        }
         val (label, color, dark) = when (c.kind) {
             "client" -> Triple(R.string.call_kind_client, "#34C759", false)
             "colleague" -> Triple(R.string.call_kind_colleague, "#0A84FF", false)

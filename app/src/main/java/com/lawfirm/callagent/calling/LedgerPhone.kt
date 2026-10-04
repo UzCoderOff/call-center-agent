@@ -208,9 +208,11 @@ object LedgerPhone {
         notifyChanged()
     }
 
-    /** Sends a keypad tone (a menu asking "press 1"). */
+    /** Sends a keypad tone (a menu asking "press 1"), and plays it here too. */
     fun sendDtmf(digit: Char) {
-        current()?.sendDtmf(digit)
+        val call = current() ?: return
+        core?.playDtmf(digit, 120)
+        call.sendDtmf(digit)
     }
 
     fun currentInfo(): CallInfo? {

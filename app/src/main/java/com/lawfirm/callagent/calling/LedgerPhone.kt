@@ -41,6 +41,10 @@ object LedgerPhone {
         val connectedAtMs: Long?,
         val muted: Boolean,
         val speaker: Boolean,
+        /** A call a colleague passed on to this phone: who passed it. */
+        val transferredBy: String? = null,
+        /** Passed on to someone who didn't answer, so it came back here: who that was. */
+        val notAnsweredBy: String? = null,
     )
 
     fun interface Listener {
@@ -218,6 +222,7 @@ object LedgerPhone {
     fun currentInfo(): CallInfo? {
         val call = current() ?: return null
         val remote = call.remoteAddress
+        val (by, back) = transferNote(call)
         return CallInfo(
             incoming = call.dir == Call.Dir.Incoming,
             state = call.state,
@@ -226,10 +231,38 @@ object LedgerPhone {
             connectedAtMs = connectedAtMs,
             muted = core?.isMicEnabled == false,
             speaker = call.outputAudioDevice?.type == AudioDevice.Type.Speaker,
+            transferredBy = by,
+            notAnsweredBy = back,
         )
     }
 
-    private fun current(): Call? = core?.currentCall ?: core?.calls?.firstOrNull()
+    // The line's X-Ledger-Transfer header ([ledger-headers]): "from:<name>" on
+    // a call passed on to this phone, "back:<name>" when it comes back.
+    private fun transferNote(call: Call): Pair<String?, String?> {
+        if (call.dir != Call.Dir.Incoming) return null to null
+        val raw = try {
+            call.remoteParams?.getCustomHeader("X-Ledger-Transfer")
+        } catch (e: Exception) {
+            null
+        } ?: return null to null
+        val text = try {
+            java.net.URLDecoder.decode(raw, "UTF-8")
+        } catch (e: Exception) {
+            raw
+        }
+        val name = text.substringAfter(':', "").trim().takeIf { it.isNotBlank() }
+        return when {
+            text.startsWith("from:") -> name to null
+            text.startsWith("back:") -> null to name
+            else -> null to null
+        }
+    }
+
+    // The call that's on — not one still ending: a call passed on comes back
+    // ([ledger-transfer]) while the old one is being let go.
+    private fun current(): Call? = core?.currentCall ?: core?.calls?.firstOrNull { it.state !in ENDED } ?: core?.calls?.firstOrNull()
+
+    private val ENDED = setOf(Call.State.End, Call.State.Released, Call.State.Error)
 
     // "+998 90 123-45-67" -> "+998901234567"; a phone ID stays as it is.
     private fun dialable(number: String): String = number.filter { it.isDigit() || it == '+' }

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Mute / keypad / speaker: see-through, white when switched on. -->
+<!-- The call screen's round buttons: frosted glass, white when switched on
+     (mute, keypad, speaker). -->
 <ripple xmlns:android="http://schemas.android.com/apk/res/android" android:color="#40FFFFFF">
     <item>
         <selector>
@@ -10,7 +11,8 @@
             </item>
             <item>
                 <shape android:shape="oval">
-                    <solid android:color="#2EFFFFFF" />
+                    <solid android:color="#1CFFFFFF" />
+                    <stroke android:width="1dp" android:color="#14FFFFFF" />
                 </shape>
             </item>
         </selector>

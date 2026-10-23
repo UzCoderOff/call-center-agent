@@ -1,6 +1,9 @@
 package com.lawfirm.callagent.calling
 
 import android.Manifest
+import android.animation.ObjectAnimator
+import android.animation.PropertyValuesHolder
+import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -21,6 +24,7 @@ import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -34,44 +38,66 @@ import org.linphone.core.Call
 import java.util.Calendar
 
 /**
- * The call screen, shown over the lock screen and dark like a phone's own
- * dialer: who is calling (initials, name, number) and what Ledger knows
- * about them — a client's cases, how far along, who handles them, the next
- * step; a colleague; a new number (CallerInfo). Answer / Decline and
- * "Remind me" while it rings; mute, keypad, loudspeaker, hang up and the
- * time while it goes on — and open the client, add them as a client or book
- * a consultation in Ledger while the call carries on. Closes itself when
- * the call ends.
+ * The call screen, shown over the lock screen: who is calling and what
+ * Ledger knows about them — a client's cases, how far along, who handles
+ * them, the next step; a colleague; a new number (CallerInfo).
+ *
+ * While it rings: the person big, with rings rippling out, Answer / Decline
+ * and "Remind me". Once connected: a compact header, so what Ledger knows
+ * gets the room — with who works on this client and "Ulash" next to them —
+ * and the controls: mute, keypad, loudspeaker; pass the call on
+ * (TransferPanel), open or add the client, book a consultation (in Ledger,
+ * the call carries on); hang up. Closes itself when the call ends.
  */
 class CallActivity : AppCompatActivity() {
     private lateinit var status: TextView
+    private lateinit var statusDot: View
+    private lateinit var rec: View
+    private lateinit var banner: View
+    private lateinit var bannerText: TextView
+    private lateinit var hero: View
+    private lateinit var ring1: View
+    private lateinit var ring2: View
     private lateinit var initials: TextView
     private lateinit var name: TextView
     private lateinit var number: TextView
-    private lateinit var options: View
-    private lateinit var remind: View
+    private lateinit var kind: TextView
+    private lateinit var compact: View
+    private lateinit var initialsSmall: TextView
+    private lateinit var nameSmall: TextView
+    private lateinit var numberSmall: TextView
+    private lateinit var kindSmall: TextView
+    private lateinit var detail: TextView
+    private lateinit var card: LinearLayout
+    private lateinit var workers: LinearLayout
+    private lateinit var cardScroll: View
     private lateinit var keypad: View
     private lateinit var digits: TextView
+    private lateinit var remind: View
+    private lateinit var options: View
     private lateinit var mute: ImageButton
     private lateinit var keypadToggle: ImageButton
     private lateinit var speaker: ImageButton
-    private lateinit var end: ImageButton
+    private lateinit var transferCell: View
+    private lateinit var clientCell: View
+    private lateinit var clientButton: ImageButton
+    private lateinit var clientLabel: TextView
+    private lateinit var bookCell: View
     private lateinit var endLabel: TextView
     private lateinit var answerBox: View
-    private lateinit var avatar: View
-    private lateinit var kind: TextView
-    private lateinit var detail: TextView
-    private lateinit var card: LinearLayout
-    private lateinit var cardScroll: View
-    private lateinit var actions: View
-    private lateinit var openClient: View
-    private lateinit var addClient: View
-    private lateinit var book: View
+    private lateinit var answer: View
+    private lateinit var panel: TransferPanel
+
     private var caller: Api.CallerCard? = null
     private var callerFor: String? = null
     private val ticker = Handler(Looper.getMainLooper())
     private var proximity: PowerManager.WakeLock? = null
     private var info: LedgerPhone.CallInfo? = null
+    private var mode: Mode? = null
+    private val animations = mutableListOf<ValueAnimator>()
+
+    /** What the screen is showing; the rings and pulses change with it. */
+    private enum class Mode { RINGING, DIALING, CONNECTED }
 
     // Answering needs the microphone; asked once, then the call is answered.
     private val askMic = registerForActivityResult(ActivityResultContracts.RequestPermission()) { LedgerPhone.accept() }
@@ -95,50 +121,77 @@ class CallActivity : AppCompatActivity() {
             window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON)
         }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        // Dark bars over the dark screen, light icons on them.
-        window.statusBarColor = Color.parseColor("#25324A")
-        window.navigationBarColor = Color.parseColor("#0E131B")
+        // The bars take the screen's own colours, with light icons.
+        window.statusBarColor = Color.parseColor("#1B2744")
+        window.navigationBarColor = Color.parseColor("#070A12")
         WindowCompat.getInsetsController(window, window.decorView).apply {
             isAppearanceLightStatusBars = false
             isAppearanceLightNavigationBars = false
         }
         setContentView(R.layout.activity_call)
         status = findViewById(R.id.callStatus)
+        statusDot = findViewById(R.id.callStatusDot)
+        rec = findViewById(R.id.callRec)
+        banner = findViewById(R.id.callBanner)
+        bannerText = findViewById(R.id.callBannerText)
+        hero = findViewById(R.id.callHero)
+        ring1 = findViewById(R.id.callRing1)
+        ring2 = findViewById(R.id.callRing2)
         initials = findViewById(R.id.callInitials)
         name = findViewById(R.id.callName)
         number = findViewById(R.id.callNumber)
-        options = findViewById(R.id.callOptions)
-        remind = findViewById(R.id.callRemind)
+        kind = findViewById(R.id.callKind)
+        compact = findViewById(R.id.callCompact)
+        initialsSmall = findViewById(R.id.callInitialsSmall)
+        nameSmall = findViewById(R.id.callNameSmall)
+        numberSmall = findViewById(R.id.callNumberSmall)
+        kindSmall = findViewById(R.id.callKindSmall)
+        detail = findViewById(R.id.callDetail)
+        card = findViewById(R.id.callCard)
+        workers = findViewById(R.id.callWorkers)
+        cardScroll = findViewById(R.id.callCardScroll)
         keypad = findViewById(R.id.callKeypad)
         digits = findViewById(R.id.callDigits)
+        remind = findViewById(R.id.callRemind)
+        options = findViewById(R.id.callOptions)
         mute = findViewById(R.id.callMute)
         keypadToggle = findViewById(R.id.callKeypadToggle)
         speaker = findViewById(R.id.callSpeaker)
-        end = findViewById(R.id.callEnd)
+        transferCell = findViewById(R.id.callTransferCell)
+        clientCell = findViewById(R.id.callClientCell)
+        clientButton = findViewById(R.id.callClient)
+        clientLabel = findViewById(R.id.callClientLabel)
+        bookCell = findViewById(R.id.callBookCell)
         endLabel = findViewById(R.id.callEndLabel)
         answerBox = findViewById(R.id.callAnswerBox)
-        avatar = findViewById(R.id.callAvatar)
-        kind = findViewById(R.id.callKind)
-        detail = findViewById(R.id.callDetail)
-        card = findViewById(R.id.callCard)
-        cardScroll = findViewById(R.id.callCardScroll)
-        actions = findViewById(R.id.callActions)
-        openClient = findViewById(R.id.callOpenClient)
-        addClient = findViewById(R.id.callAddClient)
-        book = findViewById(R.id.callBook)
-        openClient.setOnClickListener { caller?.clientId?.let { openInLedger("/clients/$it") } }
-        addClient.setOnClickListener { info?.let { openInLedger("/clients?new=1&phone=${Uri.encode(it.number)}") } }
-        book.setOnClickListener { bookConsultation() }
+        answer = findViewById(R.id.callAnswer)
+        panel = TransferPanel(this, findViewById(R.id.callRoot)) { info?.number.orEmpty() }
 
-        findViewById<View>(R.id.callAnswer).setOnClickListener { answerCall() }
-        end.setOnClickListener {
+        answer.setOnClickListener { answerCall() }
+        findViewById<View>(R.id.callEnd).setOnClickListener {
             if (info?.let { ringing(it) } == true) LedgerPhone.decline() else LedgerPhone.hangUp()
         }
         mute.setOnClickListener { LedgerPhone.toggleMute() }
         speaker.setOnClickListener { LedgerPhone.toggleSpeaker() }
         keypadToggle.setOnClickListener { showKeypad(keypad.visibility != View.VISIBLE) }
+        findViewById<View>(R.id.callKeypadHide).setOnClickListener { showKeypad(false) }
+        findViewById<View>(R.id.callTransfer).setOnClickListener { panel.open() }
+        clientButton.setOnClickListener { openOrAddClient() }
+        findViewById<View>(R.id.callBook).setOnClickListener { bookConsultation() }
         remind.setOnClickListener { chooseReminder() }
         buildKeys(findViewById(R.id.callKeys))
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                when {
+                    panel.isOpen -> panel.close()
+                    keypad.visibility == View.VISIBLE -> showKeypad(false)
+                    else -> {
+                        isEnabled = false
+                        onBackPressedDispatcher.onBackPressed()
+                    }
+                }
+            }
+        })
         proximity = (getSystemService(Context.POWER_SERVICE) as PowerManager)
             .takeIf { it.isWakeLockLevelSupported(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK) }
             ?.newWakeLock(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK, "ledger:call")
@@ -176,6 +229,8 @@ class CallActivity : AppCompatActivity() {
         LedgerPhone.removeListener(listener)
         ticker.removeCallbacks(tick)
         releaseProximity()
+        stopAnimations()
+        mode = null
         // Left while it still rings (not the screen going off — that would
         // light it up again): the banner, to answer from anywhere.
         val screenOn = (getSystemService(Context.POWER_SERVICE) as PowerManager).isInteractive
@@ -186,33 +241,52 @@ class CallActivity : AppCompatActivity() {
     private fun ringing(info: LedgerPhone.CallInfo) =
         info.incoming && (info.state == Call.State.IncomingReceived || info.state == Call.State.IncomingEarlyMedia)
 
+    // A colleague's phone ID or the line's own numbers (600…): not a client.
+    private fun outside(number: String) = number.count { it.isDigit() } > 4
+
     private fun render(info: LedgerPhone.CallInfo) {
         loadCaller(info.number)
         // Ledger's name for them (a client, a colleague) over what the line sent.
         val known = caller?.name?.takeIf { caller?.kind in setOf("client", "colleague", "service") }
         val shownName = known ?: info.name ?: info.number.ifBlank { getString(R.string.call_unknown) }
+        val shownNumber = if (known != null || info.name != null) info.number else ""
+        val seed = (known ?: info.name)?.takeIf { caller?.kind != "unknown" || info.name != null }
         name.text = shownName
-        number.text = if (known != null || info.name != null) info.number else ""
-        initials.text = initialsOf(known ?: info.name) ?: "#"
+        nameSmall.text = shownName
+        number.text = shownNumber
+        number.visibility = if (shownNumber.isBlank()) View.GONE else View.VISIBLE
+        numberSmall.text = shownNumber
+        numberSmall.visibility = if (shownNumber.isBlank()) View.GONE else View.VISIBLE
+        val letters = CallUi.initialsOf(known ?: info.name) ?: "#"
+        initials.text = letters
+        initialsSmall.text = letters
+        initials.background = CallUi.avatar(seed)
+        initialsSmall.background = CallUi.avatar(seed)
+
         val isRinging = ringing(info)
-        renderActions(isRinging)
+        val connected = info.connectedAtMs != null
+        setMode(if (isRinging) Mode.RINGING else if (connected) Mode.CONNECTED else Mode.DIALING)
+
+        // A call passed on to this phone, or one that came back to it.
+        val note = info.transferredBy?.let { getString(R.string.call_transferred_by, it) } ?: info.notAnsweredBy?.let { getString(R.string.call_came_back, it) }
+        bannerText.text = note ?: ""
+        banner.visibility = if (note != null) View.VISIBLE else View.GONE
+
+        val keypadOpen = keypad.visibility == View.VISIBLE
+        hero.visibility = if (!connected && !keypadOpen) View.VISIBLE else View.GONE
+        compact.visibility = if (connected && !keypadOpen) View.VISIBLE else View.GONE
         answerBox.visibility = if (isRinging) View.VISIBLE else View.GONE
         remind.visibility = if (isRinging && info.number.isNotBlank()) View.VISIBLE else View.GONE
-        options.visibility = if (isRinging) View.INVISIBLE else View.VISIBLE
-        if (isRinging) showKeypad(false)
+        options.visibility = if (isRinging || keypadOpen) View.GONE else View.VISIBLE
         endLabel.text = getString(if (isRinging) R.string.call_decline else R.string.call_end)
         mute.isActivated = info.muted
         speaker.isActivated = info.speaker
+        rec.visibility = if (connected && outside(info.number) && caller?.kind != "colleague") View.VISIBLE else View.GONE
+        renderControls(info)
+        renderWorkers(info)
         status.text = statusText(info)
         // Screen off against the ear, unless on the loudspeaker.
-        if (!isRinging && info.connectedAtMs != null && !info.speaker && keypad.visibility != View.VISIBLE) holdProximity() else releaseProximity()
-    }
-
-    // "Aliyev Sardor" -> "AS"; a number has none.
-    private fun initialsOf(name: String?): String? {
-        val words = name?.split(' ', '\t')?.filter { it.isNotBlank() && it.first().isLetter() } ?: return null
-        if (words.isEmpty()) return null
-        return words.take(2).joinToString("") { it.first().uppercase() }
+        if (!isRinging && connected && !info.speaker && !keypadOpen && !panel.isOpen) holdProximity() else releaseProximity()
     }
 
     private fun statusText(info: LedgerPhone.CallInfo): String = when {
@@ -229,21 +303,101 @@ class CallActivity : AppCompatActivity() {
         }
     }
 
-    private fun clock(seconds: Long) = "%d:%02d".format(seconds / 60, seconds % 60)
+    private fun clock(seconds: Long) = if (seconds >= 3600) "%d:%02d:%02d".format(seconds / 3600, seconds / 60 % 60, seconds % 60) else "%02d:%02d".format(seconds / 60, seconds % 60)
+
+    // ------------------------------------------------------------ motion
+
+    private fun setMode(next: Mode) {
+        if (next == mode) return
+        mode = next
+        stopAnimations()
+        val color = when (next) {
+            Mode.RINGING -> CallUi.AMBER
+            Mode.DIALING -> "#0A84FF"
+            Mode.CONNECTED -> CallUi.GREEN
+        }
+        statusDot.backgroundTintList = ColorStateList.valueOf(Color.parseColor(color))
+        if (next == Mode.CONNECTED) return
+        // Rings rippling out from the person; the status dot breathing.
+        val period = if (next == Mode.RINGING) 1800L else 2400L
+        listOf(ring1, ring2).forEachIndexed { i, ring ->
+            animations += ObjectAnimator.ofPropertyValuesHolder(
+                ring,
+                PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.6f),
+                PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 1.6f),
+                PropertyValuesHolder.ofFloat(View.ALPHA, 0.55f, 0f),
+            ).apply {
+                duration = period
+                startDelay = i * period / 2
+                repeatCount = ValueAnimator.INFINITE
+                start()
+            }
+        }
+        animations += ObjectAnimator.ofFloat(statusDot, View.ALPHA, 1f, 0.25f).apply {
+            duration = 700
+            repeatMode = ValueAnimator.REVERSE
+            repeatCount = ValueAnimator.INFINITE
+            start()
+        }
+        if (next == Mode.RINGING) {
+            animations += ObjectAnimator.ofPropertyValuesHolder(
+                answer,
+                PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.08f),
+                PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 1.08f),
+            ).apply {
+                duration = 600
+                repeatMode = ValueAnimator.REVERSE
+                repeatCount = ValueAnimator.INFINITE
+                start()
+            }
+        }
+    }
+
+    private fun stopAnimations() {
+        animations.forEach { it.cancel() }
+        animations.clear()
+        for (v in listOf(ring1, ring2)) {
+            v.alpha = 0f
+            v.scaleX = 1f
+            v.scaleY = 1f
+        }
+        statusDot.alpha = 1f
+        answer.scaleX = 1f
+        answer.scaleY = 1f
+    }
+
+    // ------------------------------------------------------------ keypad
 
     // The keypad, for menus that say "press 1" — each key a tone to the other side.
     private fun buildKeys(grid: GridLayout) {
-        val size = (66 * resources.displayMetrics.density).toInt()
-        val gap = (8 * resources.displayMetrics.density).toInt()
+        val size = CallUi.dp(this, 68)
+        val gap = CallUi.dp(this, 7)
+        val letters = mapOf('2' to "ABC", '3' to "DEF", '4' to "GHI", '5' to "JKL", '6' to "MNO", '7' to "PQRS", '8' to "TUV", '9' to "WXYZ", '0' to "+")
         for (key in "123456789*0#") {
-            val button = TextView(this).apply {
-                text = key.toString()
-                textSize = 28f
-                setTextColor(Color.WHITE)
+            val button = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
                 background = ContextCompat.getDrawable(this@CallActivity, R.drawable.bg_call_key)
                 isClickable = true
                 isFocusable = true
+                contentDescription = key.toString()
+                addView(TextView(this@CallActivity).apply {
+                    text = key.toString()
+                    textSize = 28f
+                    setTextColor(Color.WHITE)
+                    typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
+                    gravity = Gravity.CENTER
+                    includeFontPadding = false
+                })
+                letters[key]?.let { l ->
+                    addView(TextView(this@CallActivity).apply {
+                        text = l
+                        textSize = 9f
+                        letterSpacing = 0.15f
+                        setTextColor(Color.parseColor("#80FFFFFF"))
+                        gravity = Gravity.CENTER
+                    })
+                }
                 setOnClickListener {
                     LedgerPhone.sendDtmf(key)
                     digits.append(key.toString())
@@ -259,12 +413,12 @@ class CallActivity : AppCompatActivity() {
 
     private fun showKeypad(show: Boolean) {
         keypad.visibility = if (show) View.VISIBLE else View.GONE
-        // The keypad takes the picture's and the card's room, so all four
-        // rows fit on any phone.
-        avatar.visibility = if (show) View.GONE else View.VISIBLE
+        // The keypad takes the person's, the card's and the buttons' room, so
+        // all four rows fit on any phone.
         cardScroll.visibility = if (show) View.GONE else View.VISIBLE
         keypadToggle.isActivated = show
         if (show) releaseProximity()
+        info?.let { render(it) }
     }
 
     // ------------------------------------------------ who's on the line
@@ -284,20 +438,23 @@ class CallActivity : AppCompatActivity() {
         // The line's own numbers (600, 601…): just their name, no badge.
         if (c.kind == "service") {
             kind.visibility = View.GONE
+            kindSmall.visibility = View.GONE
             detail.visibility = View.GONE
             card.visibility = View.GONE
             return
         }
-        val (label, color, dark) = when (c.kind) {
-            "client" -> Triple(R.string.call_kind_client, "#34C759", false)
-            "colleague" -> Triple(R.string.call_kind_colleague, "#0A84FF", false)
-            "restricted" -> Triple(R.string.call_kind_restricted, "#FF9F0A", false)
-            else -> Triple(R.string.call_kind_unknown, "#FFFFFF", true)
+        val (label, color) = when (c.kind) {
+            "client" -> R.string.call_kind_client to CallUi.GREEN
+            "colleague" -> R.string.call_kind_colleague to "#64D2FF"
+            "restricted" -> R.string.call_kind_restricted to "#FFB340"
+            else -> R.string.call_kind_unknown to "#FFFFFF"
         }
-        kind.setText(label)
-        kind.backgroundTintList = ColorStateList.valueOf(Color.parseColor(color))
-        kind.setTextColor(if (dark) Color.parseColor("#1D1D1F") else Color.WHITE)
-        kind.visibility = View.VISIBLE
+        for (pill in listOf(kind, kindSmall)) {
+            pill.setText(label)
+            pill.setTextColor(Color.parseColor(color))
+            pill.backgroundTintList = ColorStateList.valueOf(Color.parseColor(color)).withAlpha(0x2E)
+            pill.visibility = View.VISIBLE
+        }
 
         val line = when (c.kind) {
             "client" -> c.via?.let { getString(R.string.call_via, it) }
@@ -309,45 +466,66 @@ class CallActivity : AppCompatActivity() {
         card.removeAllViews()
         c.cases.forEachIndexed { i, k ->
             if (i > 0) card.addView(divider())
-            card.addView(text(k.title ?: k.status, 16f, "#FFFFFF", bold = true))
+            card.addView(CallUi.text(this, k.title ?: k.status, 16f, "#FFFFFF", bold = true))
             listOfNotNull(k.status.takeIf { k.title != null }, k.stage).joinToString(" · ").takeIf { it.isNotBlank() }?.let {
-                card.addView(text(it, 14f, "#CCFFFFFF", top = 2))
+                card.addView(CallUi.text(this, it, 14f, "#B3FFFFFF", top = 3))
             }
-            k.people?.let { card.addView(text(it, 13f, "#99FFFFFF", top = 4)) }
+            k.people?.let { card.addView(CallUi.text(this, it, 13f, "#80FFFFFF", top = 6)) }
         }
         if (c.nextStep != null) {
             if (c.cases.isNotEmpty()) card.addView(divider())
-            card.addView(text(getString(R.string.call_next_step).uppercase(), 11f, "#99FFFFFF", bold = true))
+            card.addView(CallUi.text(this, getString(R.string.call_next_step).uppercase(), 11f, "#80FFFFFF", bold = true).apply { letterSpacing = 0.08f })
             val whenText = CallerInfo.whenText(c.nextStepAt)
-            card.addView(text(listOfNotNull(c.nextStep, whenText).joinToString(" · "), 15f, "#FFFFFF", top = 2))
+            card.addView(CallUi.text(this, listOfNotNull(c.nextStep, whenText).joinToString(" · "), 15f, "#FFFFFF", top = 4))
         }
         card.visibility = if (card.childCount > 0) View.VISIBLE else View.GONE
     }
 
-    private fun renderActions(isRinging: Boolean) {
+    // Passing on works for a client's call that's on: the company line.
+    private fun canTransfer(info: LedgerPhone.CallInfo) =
+        info.connectedAtMs != null && info.incoming && outside(info.number) && caller?.kind != "colleague"
+
+    private fun renderControls(info: LedgerPhone.CallInfo) {
         val c = caller
-        val ended = info == null
-        openClient.visibility = if (c?.clientId != null) View.VISIBLE else View.GONE
-        addClient.visibility = if (c != null && c.kind == "unknown" && c.canAddClient) View.VISIBLE else View.GONE
-        book.visibility = if (c != null && c.canBook && (c.kind == "client" || c.kind == "unknown")) View.VISIBLE else View.GONE
-        val any = openClient.visibility == View.VISIBLE || addClient.visibility == View.VISIBLE || book.visibility == View.VISIBLE
-        // While it rings: just answer or not.
-        actions.visibility = if (any && !isRinging && !ended) View.VISIBLE else View.GONE
+        val transfer = canTransfer(info)
+        setEnabled(transferCell, transfer)
+        if (transfer) panel.prefetch { this.info?.let { renderWorkers(it) } }
+        val open = c?.clientId != null
+        val add = c != null && c.kind == "unknown" && c.canAddClient
+        clientButton.setImageResource(if (add && !open) R.drawable.ic_person_add else R.drawable.ic_person)
+        clientLabel.setText(if (add && !open) R.string.call_add_client else R.string.call_open_client)
+        setEnabled(clientCell, open || add)
+        setEnabled(bookCell, c != null && c.canBook && (c.kind == "client" || c.kind == "unknown"))
     }
 
-    private fun text(value: String, size: Float, color: String, bold: Boolean = false, top: Int = 0) =
-        TextView(this).apply {
-            text = value
-            textSize = size
-            setTextColor(Color.parseColor(color))
-            if (bold) setTypeface(typeface, Typeface.BOLD)
-            if (top > 0) setPadding(0, (top * resources.displayMetrics.density).toInt(), 0, 0)
+    private fun setEnabled(cell: View, on: Boolean) {
+        cell.alpha = if (on) 1f else 0.32f
+        (cell as LinearLayout).getChildAt(0).isEnabled = on
+    }
+
+    // "Bu mijoz bilan ishlaydi": the client's coordinator (lawyers…), with
+    // "Ulash" right there — the quickest way to pass the call on.
+    private fun renderWorkers(info: LedgerPhone.CallInfo) {
+        val people = panel.forCaller.orEmpty()
+        workers.removeAllViews()
+        if (!canTransfer(info) || people.isEmpty() || keypad.visibility == View.VISIBLE) {
+            workers.visibility = View.GONE
+            // Someone else's client: the line "Koordinator: X" says the same.
+            return
         }
+        workers.addView(CallUi.text(this, getString(R.string.call_works_on).uppercase(), 11f, "#80FFFFFF", bold = true).apply {
+            letterSpacing = 0.08f
+            setPadding(0, 0, 0, CallUi.dp(this@CallActivity, 4))
+        })
+        people.take(3).forEach { workers.addView(CallUi.personRow(this, it, compact = true) { p -> panel.confirm(p) }) }
+        workers.visibility = View.VISIBLE
+        if (caller?.kind == "restricted") detail.visibility = View.GONE
+    }
 
     private fun divider() = View(this).apply {
-        setBackgroundColor(Color.parseColor("#26FFFFFF"))
+        setBackgroundColor(Color.parseColor("#1AFFFFFF"))
         layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1).apply {
-            val gap = (12 * resources.displayMetrics.density).toInt()
+            val gap = CallUi.dp(this@CallActivity, 12)
             setMargins(0, gap, 0, gap)
         }
     }
@@ -356,6 +534,13 @@ class CallActivity : AppCompatActivity() {
     // top of Ledger brings it back).
     private fun openInLedger(path: String) {
         startActivity(PortalActivity.openIntent(this, path))
+    }
+
+    private fun openOrAddClient() {
+        val c = caller ?: return
+        val current = info ?: return
+        if (c.clientId != null) openInLedger("/clients/${c.clientId}")
+        else if (c.kind == "unknown" && c.canAddClient) openInLedger("/clients?new=1&phone=${Uri.encode(current.number)}")
     }
 
     private fun bookConsultation() {
@@ -378,7 +563,7 @@ class CallActivity : AppCompatActivity() {
             getString(R.string.remind_3h),
             getString(R.string.remind_tomorrow),
         )
-        AlertDialog.Builder(this)
+        AlertDialog.Builder(this, R.style.CallDialog)
             .setTitle(R.string.remind_title)
             .setItems(choices) { _, which ->
                 val minutes = when (which) {

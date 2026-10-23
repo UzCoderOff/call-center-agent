@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Small rounded labels on the call screen (status, recording, who it is);
+     tinted in code (backgroundTintList). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <corners android:radius="100dp" />
+    <solid android:color="#1FFFFFFF" />
+</shape>

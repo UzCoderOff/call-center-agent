@@ -176,4 +176,32 @@
     <string name="notice_channel_updates">Ledger xabarlari</string>
     <string name="notice_call_back">Qoʻngʻiroq qilish</string>
     <string name="call_no_outside_line">Firma raqami hali ulanmagan — qoʻngʻiroq oddiy telefon orqali.</string>
+    <!-- The call screen (calling/CallActivity.kt), 3.1. -->
+    <string name="call_recording">Yozilmoqda</string>
+    <string name="call_hide_keypad">Yashirish</string>
+    <string name="call_transferred_by">Ulagan: %1$s</string>
+    <string name="call_came_back">%1$s javob bermadi — qoʻngʻiroq sizga qaytdi</string>
+    <string name="call_works_on">Bu mijoz bilan ishlaydi</string>
+    <!-- Passing a call on (calling/TransferPanel.kt). -->
+    <string name="call_transfer">Ulash</string>
+    <string name="transfer_title">Qoʻngʻiroqni ulash</string>
+    <string name="transfer_hint">Mijoz kutib turadi va musiqa eshitadi. Javob berilmasa, qoʻngʻiroq sizga qaytadi.</string>
+    <string name="transfer_search">Mijoz yoki xodim ismi, raqami</string>
+    <string name="transfer_clients">Mijozlar</string>
+    <string name="transfer_colleagues">Hamkasblar</string>
+    <string name="transfer_free">Boʻsh</string>
+    <string name="transfer_busy">Band</string>
+    <string name="transfer_off">Liniyada emas</string>
+    <string name="transfer_loading">Yuklanmoqda…</string>
+    <string name="transfer_empty">Hech kim topilmadi</string>
+    <string name="transfer_load_failed">Roʻyxat yuklanmadi: internetni tekshiring</string>
+    <string name="transfer_confirm_title">Qoʻngʻiroqni ulaysizmi?</string>
+    <string name="transfer_confirm">%1$s — mijoz unga ulanadi. Javob bermasa, qoʻngʻiroq sizga qaytadi.</string>
+    <string name="transfer_confirm_busy">%1$s hozir boshqa qoʻngʻiroqda. Baribir ulaysizmi? Javob bermasa, qoʻngʻiroq sizga qaytadi.</string>
+    <string name="transfer_cancel">Bekor qilish</string>
+    <string name="transfer_sending">Ulanmoqda…</string>
+    <string name="transfer_done">Qoʻngʻiroq yuborildi: %1$s</string>
+    <string name="transfer_failed">Ulab boʻlmadi: internetni tekshiring</string>
+    <string name="transfer_no_call">Bu qoʻngʻiroqni ulab boʻlmaydi — faqat mijozning qoʻngʻirogʻi ulanadi</string>
+    <string name="transfer_target_off">Bu xodim hozir liniyada emas</string>
 </resources>

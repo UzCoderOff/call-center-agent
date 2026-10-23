@@ -13,33 +13,71 @@
     <!-- Shown for the split second while the launcher decides where to go. -->
     <style name="Theme.CallAgent.Launcher" parent="Theme.CallAgent" />
 
-    <!-- The call screen's "open the client / add / book" buttons. -->
-    <style name="CallAction">
+    <!-- The call screen (layout/activity_call.xml): who it is ("Mijoz",
+         "Hamkasb"…), a small pill tinted in code. -->
+    <style name="CallKind">
         <item name="android:layout_width">wrap_content</item>
-        <item name="android:layout_height">40dp</item>
-        <item name="android:layout_marginStart">4dp</item>
-        <item name="android:layout_marginEnd">4dp</item>
-        <item name="android:background">@drawable/bg_call_chip</item>
-        <item name="android:clickable">true</item>
-        <item name="android:focusable">true</item>
-        <item name="android:gravity">center_vertical</item>
-        <item name="android:orientation">horizontal</item>
-        <item name="android:paddingStart">12dp</item>
-        <item name="android:paddingEnd">14dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:background">@drawable/bg_call_pill</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:paddingStart">10dp</item>
+        <item name="android:paddingTop">3dp</item>
+        <item name="android:paddingEnd">10dp</item>
+        <item name="android:paddingBottom">3dp</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:maxLines">1</item>
         <item name="android:visibility">gone</item>
     </style>
 
-    <style name="CallActionIcon">
-        <item name="android:layout_width">18dp</item>
-        <item name="android:layout_height">18dp</item>
-        <item name="android:importantForAccessibility">no</item>
+    <!-- One of the round buttons during a call, with its name under it. -->
+    <style name="CallOptionCell">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_columnWeight">1</item>
+        <item name="android:layout_marginBottom">12dp</item>
+        <item name="android:gravity">center_horizontal</item>
+        <item name="android:orientation">vertical</item>
     </style>
 
-    <style name="CallActionText">
+    <style name="CallOptionButton">
+        <item name="android:layout_width">64dp</item>
+        <item name="android:layout_height">64dp</item>
+        <item name="android:background">@drawable/bg_call_option</item>
+        <item name="android:tint">@color/call_option_icon</item>
+        <item name="android:scaleType">center</item>
+    </style>
+
+    <style name="CallOptionLabel">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
-        <item name="android:layout_marginStart">6dp</item>
+        <item name="android:layout_marginTop">6dp</item>
+        <item name="android:gravity">center</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:textColor">#CCFFFFFF</item>
+        <item name="android:textSize">12sp</item>
+    </style>
+
+    <!-- Dialogs over the dark call screen. -->
+    <style name="CallDialog" parent="Theme.AppCompat.Dialog.Alert">
+        <item name="colorAccent">#64D2FF</item>
+        <item name="android:windowBackground">@drawable/bg_call_dialog</item>
+        <!-- The app's own theme sets dark text; over the dark dialog it's white. -->
         <item name="android:textColor">#FFFFFF</item>
-        <item name="android:textSize">14sp</item>
+        <item name="android:textColorPrimary">#FFFFFF</item>
+        <item name="android:textColorSecondary">#CCFFFFFF</item>
+        <item name="textColorAlertDialogListItem">#FFFFFF</item>
+        <item name="buttonBarPositiveButtonStyle">@style/CallDialogButton</item>
+        <item name="buttonBarNegativeButtonStyle">@style/CallDialogButton.Cancel</item>
+    </style>
+
+    <style name="CallDialogButton" parent="Widget.AppCompat.Button.ButtonBar.AlertDialog">
+        <item name="android:textColor">#64D2FF</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <style name="CallDialogButton.Cancel">
+        <item name="android:textColor">#B3FFFFFF</item>
     </style>
 </resources>

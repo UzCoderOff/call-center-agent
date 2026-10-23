@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- What Ledger knows about the caller, on the dark call screen. -->
+<!-- What Ledger knows about the caller: a frosted card on the dark screen. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <corners android:radius="18dp" />
-    <solid android:color="#1AFFFFFF" />
+    <corners android:radius="22dp" />
+    <solid android:color="#12FFFFFF" />
+    <stroke android:width="1dp" android:color="#1AFFFFFF" />
 </shape>

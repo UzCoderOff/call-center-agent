@@ -200,6 +200,65 @@ object Api {
         }
     }
 
+    /**
+     * Someone a client's call can be passed on to (backend: services/pbx/transfer.js).
+     * status: "free" | "busy" | "off" (not on the line: can't take it).
+     */
+    data class TransferPerson(val employeeId: Long, val name: String, val role: String?, val ext: String?, val status: String)
+
+    /** A client found by name or number: who works on them (nothing else). */
+    data class TransferClient(val name: String, val phone: String?, val people: List<TransferPerson>)
+
+    data class TransferTargets(val forCaller: List<TransferPerson>, val clients: List<TransferClient>, val colleagues: List<TransferPerson>)
+
+    /** Whom the call with `number` can go to; `query`: a client's or colleague's name or number. */
+    fun transferTargets(token: String, number: String, query: String): TransferTargets {
+        val url = url("/api/device/transfer").toHttpUrl().newBuilder()
+            .addQueryParameter("number", number)
+            .apply { if (query.isNotBlank()) addQueryParameter("q", query) }
+            .build()
+        val request = Request.Builder()
+            .url(url)
+            .header("Authorization", "Bearer $token")
+            .header("X-App-Version", BuildConfig.VERSION_NAME)
+            .get()
+            .build()
+        client.newCall(request).execute().use { res ->
+            val json = parse(res)
+            fun people(key: String, from: JSONObject = json): List<TransferPerson> {
+                val list = from.optJSONArray(key) ?: return emptyList()
+                return (0 until list.length()).map { i ->
+                    val p = list.getJSONObject(i)
+                    TransferPerson(
+                        employeeId = p.optLong("employeeId"),
+                        name = p.optString("name"),
+                        role = p.optString(if (p.has("role")) "role" else "job").takeIf { it.isNotBlank() && it != "null" },
+                        ext = p.optString("ext").takeIf { it.isNotBlank() && it != "null" },
+                        status = p.optString("status", "off"),
+                    )
+                }
+            }
+            val clients = json.optJSONArray("clients")
+            return TransferTargets(
+                forCaller = people("forCaller"),
+                clients = (0 until (clients?.length() ?: 0)).map { i ->
+                    val c = clients!!.getJSONObject(i)
+                    TransferClient(c.optString("name"), c.optString("phone").takeIf { it.isNotBlank() && it != "null" }, people("people", c))
+                },
+                colleagues = people("colleagues"),
+            )
+        }
+    }
+
+    /** Passes this phone's client call on to that person; their name back. Errors: HttpError (no_call, target_off…). */
+    fun transfer(token: String, employeeId: Long): String {
+        val body = JSONObject().put("employeeId", employeeId)
+        val request = authed(token, "/api/device/transfer").post(body.toString().toRequestBody(JSON)).build()
+        client.newCall(request).execute().use { res ->
+            return parse(res).optString("name")
+        }
+    }
+
     /** "Remind me" on a call coming in: call this number back in `minutes`. */
     fun remindMe(token: String, phone: String, name: String?, minutes: Int) {
         val body = JSONObject().put("phone", phone).put("minutes", minutes)

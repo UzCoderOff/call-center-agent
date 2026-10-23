@@ -80,7 +80,8 @@
             android:showWhenLocked="true"
             android:turnScreenOn="true"
             android:screenOrientation="portrait"
-            android:taskAffinity="com.lawfirm.callagent.call" />
+            android:taskAffinity="com.lawfirm.callagent.call"
+            android:windowSoftInputMode="adjustResize" />
 
         <service
             android:name=".calling.CallService"

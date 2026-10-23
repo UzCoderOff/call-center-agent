@@ -76,8 +76,14 @@ object CallNotifications {
         val notification = NotificationCompat.Builder(context, CHANNEL_INCOMING)
             .setSmallIcon(R.drawable.ic_logo)
             .setContentTitle(who(context, info))
-            // The name is the title; under it the number (or "incoming call").
-            .setContentText(info?.number?.takeIf { info.name != null && it.isNotBlank() } ?: context.getString(R.string.call_incoming))
+            // The name is the title; under it who passed the call on, the
+            // number, or "incoming call".
+            .setContentText(
+                info?.transferredBy?.let { context.getString(R.string.call_transferred_by, it) }
+                    ?: info?.notAnsweredBy?.let { context.getString(R.string.call_came_back, it) }
+                    ?: info?.number?.takeIf { info.name != null && it.isNotBlank() }
+                    ?: context.getString(R.string.call_incoming)
+            )
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setOngoing(true)

@@ -41,11 +41,18 @@ object LedgerPhone {
         val connectedAtMs: Long?,
         val muted: Boolean,
         val speaker: Boolean,
-        /** A call a colleague passed on to this phone: who passed it. */
-        val transferredBy: String? = null,
-        /** Passed on to someone who didn't answer, so it came back here: who that was. */
-        val notAnsweredBy: String? = null,
+        /** What the line says about this ring (passed on, came back, straight to you…). */
+        val note: LineNote? = null,
     )
+
+    /**
+     * The line's word on a ring (X-Ledger-Transfer, [ledger-headers]):
+     *   from    a colleague passed the call on to this phone (name: who)
+     *   back    passed on to someone who didn't answer, so it came back (name: who)
+     *   direct  a client in work, sent straight to their coordinator
+     *   missed  a client whose coordinator didn't answer, now for the call center (name: who)
+     */
+    data class LineNote(val kind: String, val name: String?)
 
     fun interface Listener {
         fun onChanged(info: CallInfo?)
@@ -222,7 +229,6 @@ object LedgerPhone {
     fun currentInfo(): CallInfo? {
         val call = current() ?: return null
         val remote = call.remoteAddress
-        val (by, back) = transferNote(call)
         return CallInfo(
             incoming = call.dir == Call.Dir.Incoming,
             state = call.state,
@@ -231,31 +237,27 @@ object LedgerPhone {
             connectedAtMs = connectedAtMs,
             muted = core?.isMicEnabled == false,
             speaker = call.outputAudioDevice?.type == AudioDevice.Type.Speaker,
-            transferredBy = by,
-            notAnsweredBy = back,
+            note = lineNote(call),
         )
     }
 
-    // The line's X-Ledger-Transfer header ([ledger-headers]): "from:<name>" on
-    // a call passed on to this phone, "back:<name>" when it comes back.
-    private fun transferNote(call: Call): Pair<String?, String?> {
-        if (call.dir != Call.Dir.Incoming) return null to null
+    // The line's X-Ledger-Transfer header: "from:<name>", "back:<name>",
+    // "direct", "missed:<name>" (LineNote).
+    private fun lineNote(call: Call): LineNote? {
+        if (call.dir != Call.Dir.Incoming) return null
         val raw = try {
             call.remoteParams?.getCustomHeader("X-Ledger-Transfer")
         } catch (e: Exception) {
             null
-        } ?: return null to null
+        } ?: return null
         val text = try {
             java.net.URLDecoder.decode(raw, "UTF-8")
         } catch (e: Exception) {
             raw
         }
+        val kind = text.substringBefore(':').trim()
         val name = text.substringAfter(':', "").trim().takeIf { it.isNotBlank() }
-        return when {
-            text.startsWith("from:") -> name to null
-            text.startsWith("back:") -> null to name
-            else -> null to null
-        }
+        return if (kind in setOf("from", "back", "direct", "missed")) LineNote(kind, name) else null
     }
 
     // The call that's on — not one still ending: a call passed on comes back

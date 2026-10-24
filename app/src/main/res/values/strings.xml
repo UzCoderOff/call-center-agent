@@ -182,6 +182,8 @@
     <string name="call_transferred_by">Ulagan: %1$s</string>
     <string name="call_came_back">%1$s javob bermadi — qoʻngʻiroq sizga qaytdi</string>
     <string name="call_works_on">Bu mijoz bilan ishlaydi</string>
+    <string name="call_direct">Sizning mijozingiz — toʻgʻridan-toʻgʻri sizga</string>
+    <string name="call_coordinator_missed">Koordinatori %1$s javob bermadi</string>
     <!-- Passing a call on (calling/TransferPanel.kt). -->
     <string name="call_transfer">Ulash</string>
     <string name="transfer_title">Qoʻngʻiroqni ulash</string>

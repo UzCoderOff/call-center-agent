@@ -79,8 +79,7 @@ object CallNotifications {
             // The name is the title; under it who passed the call on, the
             // number, or "incoming call".
             .setContentText(
-                info?.transferredBy?.let { context.getString(R.string.call_transferred_by, it) }
-                    ?: info?.notAnsweredBy?.let { context.getString(R.string.call_came_back, it) }
+                CallUi.noteText(context, info?.note)
                     ?: info?.number?.takeIf { info.name != null && it.isNotBlank() }
                     ?: context.getString(R.string.call_incoming)
             )

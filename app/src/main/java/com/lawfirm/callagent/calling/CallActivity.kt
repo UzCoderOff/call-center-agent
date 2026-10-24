@@ -267,8 +267,9 @@ class CallActivity : AppCompatActivity() {
         val connected = info.connectedAtMs != null
         setMode(if (isRinging) Mode.RINGING else if (connected) Mode.CONNECTED else Mode.DIALING)
 
-        // A call passed on to this phone, or one that came back to it.
-        val note = info.transferredBy?.let { getString(R.string.call_transferred_by, it) } ?: info.notAnsweredBy?.let { getString(R.string.call_came_back, it) }
+        // A call passed on to this phone, one that came back, a client sent
+        // straight to their coordinator, or one their coordinator missed.
+        val note = CallUi.noteText(this, info.note)
         bannerText.text = note ?: ""
         banner.visibility = if (note != null) View.VISIBLE else View.GONE
 

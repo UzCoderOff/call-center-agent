@@ -48,6 +48,15 @@ object CallUi {
         return words.take(2).joinToString("") { it.first().uppercase() }
     }
 
+    /** The line's word on a ring, as the call screen and the ringing notification say it. */
+    fun noteText(context: Context, note: LedgerPhone.LineNote?): String? = when (note?.kind) {
+        "from" -> note.name?.let { context.getString(R.string.call_transferred_by, it) }
+        "back" -> note.name?.let { context.getString(R.string.call_came_back, it) }
+        "direct" -> context.getString(R.string.call_direct)
+        "missed" -> note.name?.let { context.getString(R.string.call_coordinator_missed, it) }
+        else -> null
+    }
+
     fun dp(context: Context, value: Int) = (value * context.resources.displayMetrics.density).toInt()
 
     fun text(context: Context, value: String, size: Float, color: String, bold: Boolean = false, top: Int = 0) =

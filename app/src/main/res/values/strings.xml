@@ -126,6 +126,7 @@
     <!-- Update -->
     <string name="update_title">Yangi versiya mavjud</string>
     <string name="update_text">Ilovaning yangi versiyasi (%1$s) chiqdi. «Yangilash»ni bosing — shu yerning oʻzida yuklanib, oʻrnatiladi.</string>
+    <string name="update_text_plain">Ilovaning yangi versiyasi chiqdi. «Yangilash»ni bosing — shu yerning oʻzida yuklanib, oʻrnatiladi.</string>
     <string name="update_now">Yangilash</string>
     <string name="update_browser">Brauzerda</string>
     <string name="update_downloading">Yangi versiya yuklanmoqda…</string>

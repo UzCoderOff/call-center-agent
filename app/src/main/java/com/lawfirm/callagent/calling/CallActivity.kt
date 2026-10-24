@@ -195,7 +195,9 @@ class CallActivity : AppCompatActivity() {
         proximity = (getSystemService(Context.POWER_SERVICE) as PowerManager)
             .takeIf { it.isWakeLockLevelSupported(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK) }
             ?.newWakeLock(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK, "ledger:call")
-        handleAction(intent)
+        // Answer/decline from the notification: once, not again when Android
+        // rebuilds the screen.
+        if (savedInstanceState == null) handleAction(intent)
     }
 
     override fun onNewIntent(intent: Intent) {

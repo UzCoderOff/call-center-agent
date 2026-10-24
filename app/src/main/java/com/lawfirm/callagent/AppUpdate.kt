@@ -20,12 +20,10 @@ import java.util.concurrent.TimeUnit
  * server offers (config.downloadUrl, backend /downloads/ledger.apk) is
  * downloaded inside the app and handed to Android's own installer.
  *
- * Android never lets an app replace itself silently on the first go: the
- * person allows "install apps from Ledger" once (a system switch) and taps
- * "Update" in the system's box. From Android 12 on, once Ledger has
- * installed itself this way, later updates may go through with no box at
- * all (USER_ACTION_NOT_REQUIRED) — if the phone's maker allows it; when it
- * doesn't, Android simply shows the box (STATUS_PENDING_USER_ACTION).
+ * Android doesn't let an app replace itself silently: the person allows
+ * "install apps from Ledger" once (a system switch) and taps "Update" in
+ * the system's box each time (STATUS_PENDING_USER_ACTION). Ledger closes
+ * while it installs and is opened again by the person.
  *
  * Only an APK of this same app, newer than this one, is installed; Android
  * itself refuses one signed with another key.
@@ -38,6 +36,14 @@ object AppUpdate {
         .build()
 
     private const val ACTION_STATUS = "com.lawfirm.callagent.UPDATE_STATUS"
+
+    /** Android's install box, when it came while Ledger wasn't on screen. */
+    @Volatile
+    var pendingConfirm: Intent? = null
+
+    /** Ledger's main screen is showing (PortalActivity onResume/onPause). */
+    @Volatile
+    var onScreen = false
 
     /** Whether the system switch "install apps from Ledger" is on. */
     fun canInstall(context: Context): Boolean =
@@ -101,6 +107,15 @@ object AppUpdate {
             if (Build.VERSION.SDK_INT >= 31) setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
         }
         val id = installer.createSession(params)
+        try {
+            write(installer, id, apk, context)
+        } catch (e: Exception) {
+            installer.abandonSession(id)
+            throw e
+        }
+    }
+
+    private fun write(installer: PackageInstaller, id: Int, apk: File, context: Context) {
         installer.openSession(id).use { session ->
             apk.inputStream().use { input ->
                 session.openWrite("ledger.apk", 0, apk.length()).use { output ->
@@ -125,11 +140,25 @@ object AppUpdate {
                     } else {
                         intent.getParcelableExtra(Intent.EXTRA_INTENT)
                     }
-                    confirm?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)?.let { context.startActivity(it) }
+                    confirm?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)?.let {
+                        // Shown now if Ledger is on screen; otherwise kept for when
+                        // it is — Android quietly blocks windows opened from the
+                        // background.
+                        if (onScreen) {
+                            try {
+                                context.startActivity(it)
+                            } catch (e: Exception) {
+                                pendingConfirm = it
+                            }
+                        } else {
+                            pendingConfirm = it
+                        }
+                    }
                 }
-                PackageInstaller.STATUS_SUCCESS -> Unit // Ledger restarts as the new version.
-                PackageInstaller.STATUS_FAILURE_ABORTED -> Unit // "Cancel" in the system's box.
+                PackageInstaller.STATUS_SUCCESS -> pendingConfirm = null
+                PackageInstaller.STATUS_FAILURE_ABORTED -> pendingConfirm = null // "Cancel" in the system's box.
                 else -> {
+                    pendingConfirm = null
                     DiagnosticLog.append(context, "update failed: ${intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)}")
                     Toast.makeText(context, R.string.update_failed, Toast.LENGTH_LONG).show()
                 }

@@ -180,7 +180,11 @@ class PortalActivity : AppCompatActivity() {
             // Opened from a notification: straight to its page.
             webView.loadUrl(BuildConfig.PORTAL_URL.trimEnd('/') + (intent.getStringExtra(EXTRA_PATH) ?: ""))
         }
-        intent.getStringExtra(EXTRA_CALL)?.let { placeCall(it) }
+        // A reminder's Call button: once — not again when Android rebuilds the
+        // screen (dark mode, the app reopened from Recents).
+        if (savedInstanceState == null && (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == 0) {
+            intent.getStringExtra(EXTRA_CALL)?.let { placeCall(it) }
+        }
     }
 
     // A notification tapped while Ledger is open: its page, or its Call button.
@@ -255,6 +259,16 @@ class PortalActivity : AppCompatActivity() {
             lastConfigAt = now
             lifecycleScope.launch { applyLatestConfig() }
         }
+        AppUpdate.onScreen = true
+        // Android's install box, held back while Ledger wasn't on screen.
+        AppUpdate.pendingConfirm?.let {
+            AppUpdate.pendingConfirm = null
+            try {
+                startActivity(it)
+            } catch (e: ActivityNotFoundException) {
+                // The installer is gone: the next offer starts again.
+            }
+        }
         // Back from the "install apps from Ledger" switch.
         pendingUpdateUrl?.let { url ->
             pendingUpdateUrl = null
@@ -263,6 +277,7 @@ class PortalActivity : AppCompatActivity() {
     }
 
     override fun onPause() {
+        AppUpdate.onScreen = false
         webView.onPause()
         LedgerPhone.setForeground(this, false)
         super.onPause()
@@ -389,7 +404,7 @@ class PortalActivity : AppCompatActivity() {
         updateOffered = true
         AlertDialog.Builder(this)
             .setTitle(R.string.update_title)
-            .setMessage(getString(R.string.update_text, config.latestVersionName ?: ""))
+            .setMessage(config.latestVersionName?.let { getString(R.string.update_text, it) } ?: getString(R.string.update_text_plain))
             .setPositiveButton(R.string.update_now) { _, _ -> startUpdate(url) }
             .setNegativeButton(R.string.update_later, null)
             .show()
@@ -445,9 +460,19 @@ class PortalActivity : AppCompatActivity() {
                         }
                     }
                 }
+                // A call came in while it downloaded: not now — the install box
+                // over the call screen could end the call.
+                if (LedgerPhone.inCall()) {
+                    dialog.dismiss()
+                    updateOffered = false
+                    Toast.makeText(this@PortalActivity, R.string.update_after_call, Toast.LENGTH_LONG).show()
+                    return@launch
+                }
                 withContext(Dispatchers.IO) { AppUpdate.install(this@PortalActivity, apk) }
                 dialog.dismiss()
             } catch (e: Exception) {
+                // The screen went away meanwhile (rotated, dark mode): nothing to show.
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 dialog.dismiss()
                 DiagnosticLog.append(this@PortalActivity, "update download failed: ${e.message}")
                 AlertDialog.Builder(this@PortalActivity)

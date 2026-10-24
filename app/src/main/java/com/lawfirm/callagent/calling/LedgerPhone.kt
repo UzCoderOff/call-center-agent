@@ -226,6 +226,9 @@ object LedgerPhone {
         call.sendDtmf(digit)
     }
 
+    /** A call ringing or going on now. */
+    fun inCall(): Boolean = core?.calls?.any { it.state !in ENDED } == true
+
     fun currentInfo(): CallInfo? {
         val call = current() ?: return null
         val remote = call.remoteAddress

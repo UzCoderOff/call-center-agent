@@ -125,8 +125,15 @@
 
     <!-- Update -->
     <string name="update_title">Yangi versiya mavjud</string>
-    <string name="update_text">Ilovaning yangi versiyasi (%1$s) chiqdi. Yuklab olib, oʻrnating.</string>
-    <string name="update_download">Yuklab olish</string>
+    <string name="update_text">Ilovaning yangi versiyasi (%1$s) chiqdi. «Yangilash»ni bosing — shu yerning oʻzida yuklanib, oʻrnatiladi.</string>
+    <string name="update_now">Yangilash</string>
+    <string name="update_browser">Brauzerda</string>
+    <string name="update_downloading">Yangi versiya yuklanmoqda…</string>
+    <string name="update_allow_title">Bir martalik ruxsat</string>
+    <string name="update_allow_text">Ledger oʻzini yangilashi uchun Android bir marta ruxsat soʻraydi. Ochilgan sahifada ruxsatni yoqing va orqaga qayting.</string>
+    <string name="update_allow">Ruxsat sahifasini ochish</string>
+    <string name="update_failed">Yangilab boʻlmadi. Internetni tekshirib, qayta urinib koʻring yoki brauzerda yuklab oling.</string>
+    <string name="update_after_call">Qoʻngʻiroq tugagach yangilang.</string>
     <string name="update_later">Keyinroq</string>
 
     <!-- Diagnostics -->

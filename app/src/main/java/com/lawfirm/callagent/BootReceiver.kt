@@ -5,7 +5,8 @@ import android.content.Context
 import android.content.Intent
 
 /**
- * Re-arms the hourly sync after a reboot.
+ * Re-arms the hourly sync after a reboot, and after Ledger updated itself
+ * (AppUpdate) — then also clears the downloaded APK.
  *
  * WorkManager's own schedule normally survives reboots, but relies on its
  * internal receiver getting a chance to run — some OEM battery managers
@@ -15,7 +16,8 @@ import android.content.Intent
  */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
+        if (intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) AppUpdate.cleanUp(context)
+        else if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
         if (!SecureStore.hasToken(context) || !Session.collectCalls(context)) return
         if (!Permissions.requiredGranted(context)) return
         SyncScheduler.schedule(context)

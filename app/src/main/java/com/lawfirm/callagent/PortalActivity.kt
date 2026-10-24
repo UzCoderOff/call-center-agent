@@ -61,6 +61,8 @@ class PortalActivity : AppCompatActivity() {
     private var lastRenewAt = 0L
     private var lastConfigAt = 0L
     private var updateOffered = false
+    // Waiting for Android's "install apps from Ledger" switch.
+    private var pendingUpdateUrl: String? = null
 
     // A file picker the portal asked for (<input type="file">), waiting for
     // the person's choice.
@@ -253,6 +255,11 @@ class PortalActivity : AppCompatActivity() {
             lastConfigAt = now
             lifecycleScope.launch { applyLatestConfig() }
         }
+        // Back from the "install apps from Ledger" switch.
+        pendingUpdateUrl?.let { url ->
+            pendingUpdateUrl = null
+            if (AppUpdate.canInstall(this)) startUpdate(url)
+        }
     }
 
     override fun onPause() {
@@ -373,6 +380,9 @@ class PortalActivity : AppCompatActivity() {
         maybeOfferUpdate(config)
     }
 
+    // A newer Ledger on the server: offered once per start. "Yangilash"
+    // downloads it right here and hands it to Android (AppUpdate) — no
+    // browser, no Play.
     private fun maybeOfferUpdate(config: Api.Config) {
         val url = config.downloadUrl ?: return
         if (updateOffered || config.latestVersionCode <= BuildConfig.VERSION_CODE) return
@@ -380,9 +390,75 @@ class PortalActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setTitle(R.string.update_title)
             .setMessage(getString(R.string.update_text, config.latestVersionName ?: ""))
-            .setPositiveButton(R.string.update_download) { _, _ -> openExternal(Uri.parse(url)) }
+            .setPositiveButton(R.string.update_now) { _, _ -> startUpdate(url) }
             .setNegativeButton(R.string.update_later, null)
             .show()
+    }
+
+    private fun startUpdate(url: String) {
+        // Installing closes Ledger: never in the middle of a call.
+        if (LedgerPhone.inCall()) {
+            Toast.makeText(this, R.string.update_after_call, Toast.LENGTH_LONG).show()
+            updateOffered = false
+            return
+        }
+        // Android's one-time switch "install apps from Ledger"; back here,
+        // onResume carries on.
+        if (!AppUpdate.canInstall(this)) {
+            AlertDialog.Builder(this)
+                .setTitle(R.string.update_allow_title)
+                .setMessage(R.string.update_allow_text)
+                .setPositiveButton(R.string.update_allow) { _, _ ->
+                    pendingUpdateUrl = url
+                    try {
+                        startActivity(AppUpdate.allowIntent(this))
+                    } catch (e: ActivityNotFoundException) {
+                        pendingUpdateUrl = null
+                        openExternal(Uri.parse(url))
+                    }
+                }
+                .setNegativeButton(R.string.update_later, null)
+                .show()
+            return
+        }
+        val bar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+            max = 100
+            isIndeterminate = true
+        }
+        val pad = (24 * resources.displayMetrics.density).toInt()
+        val box = android.widget.FrameLayout(this).apply {
+            setPadding(pad, pad / 2, pad, 0)
+            addView(bar)
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.update_downloading)
+            .setView(box)
+            .setCancelable(false)
+            .show()
+        lifecycleScope.launch {
+            try {
+                val apk = withContext(Dispatchers.IO) {
+                    AppUpdate.download(this@PortalActivity, url) { percent ->
+                        runOnUiThread {
+                            bar.isIndeterminate = percent < 0
+                            if (percent >= 0) bar.progress = percent
+                        }
+                    }
+                }
+                withContext(Dispatchers.IO) { AppUpdate.install(this@PortalActivity, apk) }
+                dialog.dismiss()
+            } catch (e: Exception) {
+                dialog.dismiss()
+                DiagnosticLog.append(this@PortalActivity, "update download failed: ${e.message}")
+                AlertDialog.Builder(this@PortalActivity)
+                    .setTitle(R.string.update_title)
+                    .setMessage(R.string.update_failed)
+                    .setPositiveButton(R.string.update_now) { _, _ -> startUpdate(url) }
+                    .setNeutralButton(R.string.update_browser) { _, _ -> openExternal(Uri.parse(url)) }
+                    .setNegativeButton(R.string.update_later, null)
+                    .show()
+            }
+        }
     }
 
     /**

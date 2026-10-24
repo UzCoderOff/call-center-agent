@@ -36,6 +36,8 @@
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Updating itself from the server's APK (AppUpdate): no Play Store. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:allowBackup="false"
@@ -92,6 +94,11 @@
             android:name=".calling.CallActionReceiver"
             android:exported="false" />
 
+        <!-- Android's answer to an update Ledger installed (AppUpdate). -->
+        <receiver
+            android:name=".AppUpdate$StatusReceiver"
+            android:exported="false" />
+
         <!-- Google push: wakes Ledger for a call coming in. -->
         <service
             android:name=".push.LedgerMessagingService"
@@ -107,6 +114,7 @@
             android:enabled="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
 

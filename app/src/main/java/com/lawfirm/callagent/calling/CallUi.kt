@@ -41,6 +41,29 @@ object CallUi {
         return GradientDrawable(GradientDrawable.Orientation.TL_BR, colors).apply { shape = GradientDrawable.OVAL }
     }
 
+    /**
+     * An Uzbek number with its +998, however it came ("901234567" from the
+     * line or a phone, "998901234567", "8 90 123 45 67"); anything else as
+     * it was, digits and + only.
+     */
+    fun e164(raw: String?): String {
+        val digits = raw.orEmpty().filter { it.isDigit() }
+        return when {
+            digits.length == 12 && digits.startsWith("998") -> "+$digits"
+            digits.length == 9 -> "+998$digits"
+            digits.length == 10 && digits.startsWith("8") -> "+998${digits.drop(1)}"
+            else -> raw.orEmpty().filter { it.isDigit() || it == '+' }
+        }
+    }
+
+    /** "+998901234567" -> "+998 90 123 45 67"; short numbers (a phone ID, 600…) as they are. */
+    fun formatPhone(raw: String?): String {
+        val n = e164(raw)
+        if (!Regex("""^\+998\d{9}$""").matches(n)) return raw.orEmpty()
+        val d = n.drop(4)
+        return "+998 ${d.take(2)} ${d.substring(2, 5)} ${d.substring(5, 7)} ${d.substring(7)}"
+    }
+
     /** "Aliyev Sardor" -> "AS"; a number has none. */
     fun initialsOf(name: String?): String? {
         val words = name?.split(' ', '\t')?.filter { it.isNotBlank() && it.first().isLetter() } ?: return null

@@ -43,7 +43,7 @@ object CallNotifications {
     }
 
     private fun who(context: Context, info: LedgerPhone.CallInfo?): String =
-        info?.name ?: info?.number?.takeIf { it.isNotBlank() } ?: context.getString(R.string.call_unknown)
+        info?.name ?: info?.number?.takeIf { it.isNotBlank() }?.let { CallUi.formatPhone(it) } ?: context.getString(R.string.call_unknown)
 
     private fun activityIntent(context: Context, action: String?, request: Int): PendingIntent =
         PendingIntent.getActivity(
@@ -80,7 +80,7 @@ object CallNotifications {
             // number, or "incoming call".
             .setContentText(
                 CallUi.noteText(context, info?.note)
-                    ?: info?.number?.takeIf { info.name != null && it.isNotBlank() }
+                    ?: info?.number?.takeIf { info.name != null && it.isNotBlank() }?.let { CallUi.formatPhone(it) }
                     ?: context.getString(R.string.call_incoming)
             )
             .setCategory(NotificationCompat.CATEGORY_CALL)

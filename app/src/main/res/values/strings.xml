@@ -193,7 +193,7 @@
     <string name="transfer_colleagues">Hamkasblar</string>
     <string name="transfer_free">Boʻsh</string>
     <string name="transfer_busy">Band</string>
-    <string name="transfer_off">Liniyada emas</string>
+    <string name="transfer_off">Telefoni ulanmagan</string>
     <string name="transfer_loading">Yuklanmoqda…</string>
     <string name="transfer_empty">Hech kim topilmadi</string>
     <string name="transfer_load_failed">Roʻyxat yuklanmadi: internetni tekshiring</string>

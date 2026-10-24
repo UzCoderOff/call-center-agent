@@ -248,8 +248,8 @@ class CallActivity : AppCompatActivity() {
         loadCaller(info.number)
         // Ledger's name for them (a client, a colleague) over what the line sent.
         val known = caller?.name?.takeIf { caller?.kind in setOf("client", "colleague", "service") }
-        val shownName = known ?: info.name ?: info.number.ifBlank { getString(R.string.call_unknown) }
-        val shownNumber = if (known != null || info.name != null) info.number else ""
+        val shownName = known ?: info.name ?: CallUi.formatPhone(info.number).ifBlank { getString(R.string.call_unknown) }
+        val shownNumber = if (known != null || info.name != null) CallUi.formatPhone(info.number) else ""
         val seed = (known ?: info.name)?.takeIf { caller?.kind != "unknown" || info.name != null }
         name.text = shownName
         nameSmall.text = shownName
@@ -541,7 +541,7 @@ class CallActivity : AppCompatActivity() {
         val c = caller ?: return
         val current = info ?: return
         if (c.clientId != null) openInLedger("/clients/${c.clientId}")
-        else if (c.kind == "unknown" && c.canAddClient) openInLedger("/clients?new=1&phone=${Uri.encode(current.number)}")
+        else if (c.kind == "unknown" && c.canAddClient) openInLedger("/clients?new=1&phone=${Uri.encode(CallUi.e164(current.number))}")
     }
 
     private fun bookConsultation() {
@@ -550,7 +550,7 @@ class CallActivity : AppCompatActivity() {
         val query = buildList {
             c?.clientId?.let { add("clientId=$it") }
             c?.name?.takeIf { c.kind == "client" }?.let { add("name=${Uri.encode(it)}") }
-            if (current.number.isNotBlank()) add("phone=${Uri.encode(current.number)}")
+            if (current.number.isNotBlank()) add("phone=${Uri.encode(CallUi.e164(current.number))}")
         }.joinToString("&")
         openInLedger("/calendar?$query")
     }
@@ -574,7 +574,7 @@ class CallActivity : AppCompatActivity() {
                     else -> minutesUntilTomorrowMorning()
                 }
                 LedgerPhone.decline()
-                remindLater(applicationContext, current.number, current.name, minutes)
+                remindLater(applicationContext, CallUi.e164(current.number), current.name, minutes)
             }
             .setNegativeButton(R.string.remind_cancel, null)
             .show()

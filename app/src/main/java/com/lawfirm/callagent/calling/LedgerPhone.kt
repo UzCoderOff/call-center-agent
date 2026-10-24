@@ -32,6 +32,8 @@ import org.linphone.core.TransportType
  * Main thread only.
  */
 object LedgerPhone {
+
+    private val HD_AND_PHONE_CODECS = setOf("OPUS", "G722", "PCMA", "PCMU")
     /** What a screen shows about the call going on. */
     data class CallInfo(
         val incoming: Boolean,
@@ -114,10 +116,12 @@ object LedgerPhone {
         c.setRootCaData(ctx.resources.openRawResource(R.raw.ledger_pbx_ca).bufferedReader().use { it.readText() })
         c.verifyServerCertificates(true)
         c.verifyServerCn(true)
-        // Encrypted audio, required; telephone audio (what the line carries).
+        // Encrypted audio, required. HD voice first (Opus, then G.722) so the
+        // staff side is recorded clearly for the call's text; telephone audio
+        // (PCMA/PCMU) when HD can't be used.
         c.mediaEncryption = MediaEncryption.SRTP
         c.isMediaEncryptionMandatory = true
-        for (payload in c.audioPayloadTypes) payload.enable(payload.mimeType == "PCMA" || payload.mimeType == "PCMU")
+        for (payload in c.audioPayloadTypes) payload.enable(payload.mimeType.uppercase() in HD_AND_PHONE_CODECS)
         for (payload in c.videoPayloadTypes) payload.enable(false)
         c.isVideoCaptureEnabled = false
         c.isVideoDisplayEnabled = false

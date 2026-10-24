@@ -245,7 +245,9 @@ object LedgerPhone {
     }
 
     // The line's X-Ledger-Transfer header: "from:<name>", "back:<name>",
-    // "direct", "missed:<name>" (LineNote).
+    // "direct" (a client of this coordinator), "mine:thinking" / "mine:second"
+    // (this operator's caller), "missed:<coordinator>" / "missedop:<operator>"
+    // (theirs, not answered) — LineNote.
     private fun lineNote(call: Call): LineNote? {
         if (call.dir != Call.Dir.Incoming) return null
         val raw = try {
@@ -260,7 +262,7 @@ object LedgerPhone {
         }
         val kind = text.substringBefore(':').trim()
         val name = text.substringAfter(':', "").trim().takeIf { it.isNotBlank() }
-        return if (kind in setOf("from", "back", "direct", "missed")) LineNote(kind, name) else null
+        return if (kind in setOf("from", "back", "direct", "mine", "missed", "missedop")) LineNote(kind, name) else null
     }
 
     // The call that's on — not one still ending: a call passed on comes back

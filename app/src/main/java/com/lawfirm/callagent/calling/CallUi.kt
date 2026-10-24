@@ -76,7 +76,9 @@ object CallUi {
         "from" -> note.name?.let { context.getString(R.string.call_transferred_by, it) }
         "back" -> note.name?.let { context.getString(R.string.call_came_back, it) }
         "direct" -> context.getString(R.string.call_direct)
+        "mine" -> context.getString(if (note.name == "second") R.string.call_mine_second else R.string.call_mine_thinking)
         "missed" -> note.name?.let { context.getString(R.string.call_coordinator_missed, it) }
+        "missedop" -> note.name?.let { context.getString(R.string.call_operator_missed, it) }
         else -> null
     }
 

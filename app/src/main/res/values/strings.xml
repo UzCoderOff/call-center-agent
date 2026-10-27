@@ -194,6 +194,7 @@
     <string name="call_coordinator_missed">Koordinatori %1$s javob bermadi</string>
     <string name="call_mine_thinking">Siz bilan gaplashgan — oʻylab koʻrayotgan edi</string>
     <string name="call_mine_second">Ikkinchi imkoniyat — sizga berilgan raqam</string>
+    <string name="call_mine_last">Avval siz bilan gaplashgan</string>
     <string name="call_operator_missed">Bu raqam bilan %1$s gaplashgan — javob bermadi</string>
     <!-- Passing a call on (calling/TransferPanel.kt). -->
     <string name="call_transfer">Ulash</string>

@@ -104,6 +104,11 @@ class CallActivity : AppCompatActivity() {
 
     private val listener = LedgerPhone.Listener { info ->
         if (info == null) {
+            // A talk with a new number on a call-center phone: Ledger opens to
+            // ask what came of it, and waits for the answer (the portal's
+            // AfterCallGate).
+            val last = this.info
+            if (last?.connectedAtMs != null && outside(last.number) && caller?.askAfter == true) openInLedger("/")
             finishAndRemoveTask()
         } else {
             this.info = info

@@ -165,6 +165,8 @@ object Api {
         val nextStepAt: String?,
         val canBook: Boolean,
         val canAddClient: Boolean,
+        /** A new number on a call-center phone: Ledger opens after the talk to ask what came of it. */
+        val askAfter: Boolean = false,
     )
 
     data class CaseLine(val title: String?, val status: String, val stage: String?, val people: String?)
@@ -196,6 +198,7 @@ object Api {
                 nextStepAt = step?.let { text(it, "dueAt") },
                 canBook = json.optBoolean("canBook", false),
                 canAddClient = json.optBoolean("canAddClient", false),
+                askAfter = json.optBoolean("askAfter", false),
             )
         }
     }

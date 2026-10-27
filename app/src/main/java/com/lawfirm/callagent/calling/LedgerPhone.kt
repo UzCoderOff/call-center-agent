@@ -159,6 +159,7 @@ object LedgerPhone {
     fun stop() {
         val c = core ?: return
         core = null
+        appContext?.let { CallVibration.stop(it) }
         c.removeListener(coreListener)
         c.stop()
         appContext?.let { DiagnosticLog.append(it, "phone line: stopped") }
@@ -274,6 +275,7 @@ object LedgerPhone {
     private fun current(): Call? = core?.currentCall ?: core?.calls?.firstOrNull { it.state !in ENDED } ?: core?.calls?.firstOrNull()
 
     private val ENDED = setOf(Call.State.End, Call.State.Released, Call.State.Error)
+    private val RINGING = setOf(Call.State.IncomingReceived, Call.State.IncomingEarlyMedia)
 
     // "+998 90 123-45-67" -> "+998901234567"; a phone ID stays as it is.
     private fun dialable(number: String): String = number.filter { it.isDigit() || it == '+' }
@@ -307,6 +309,8 @@ object LedgerPhone {
                 }
                 else -> {}
             }
+            // Buzzing while a call rings, stopped by anything else.
+            if (core.calls.any { it.dir == Call.Dir.Incoming && it.state in RINGING }) CallVibration.start(ctx) else CallVibration.stop(ctx)
             notifyChanged()
         }
 

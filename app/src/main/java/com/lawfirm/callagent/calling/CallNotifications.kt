@@ -26,8 +26,8 @@ object CallNotifications {
     fun ensureChannels(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(NotificationManager::class.java)
-        // The ringtone comes from the call itself (the phone's own ringtone),
-        // so the notification is silent.
+        // The ringtone comes from the call itself (the phone's own ringtone)
+        // and the buzz from CallVibration, so the notification is silent.
         manager.createNotificationChannel(
             NotificationChannel(CHANNEL_INCOMING, context.getString(R.string.call_channel_incoming), NotificationManager.IMPORTANCE_HIGH).apply {
                 setSound(null, null)
